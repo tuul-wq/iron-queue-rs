@@ -1,11 +1,12 @@
 use std::error::Error;
 
-use iron_queue_rs::env_config::EnvConfig;
+use iron_queue_rs::api::routes;
+use iron_queue_rs::env_config;
 
 fn main() -> Result<(), Box<dyn Error>> {
     dotenvy::dotenv().ok();
 
-    let config = EnvConfig::from_env()?;
+    let config = env_config::EnvConfig::from_env()?;
 
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
@@ -13,8 +14,11 @@ fn main() -> Result<(), Box<dyn Error>> {
         .block_on(async_main(config))
 }
 
-async fn async_main(config: EnvConfig) -> Result<(), Box<dyn Error>> {
-    println!("Hello world");
+async fn async_main(config: env_config::EnvConfig) -> Result<(), Box<dyn Error>> {
+    let app = routes::setup_routes();
+
+    let listener = tokio::net::TcpListener::bind(&config.api_addr).await?;
+    axum::serve(listener, app).await?;
 
     Ok(())
 }

@@ -1,3 +1,4 @@
+use sqlx::postgres::PgPoolOptions;
 use std::error::Error;
 
 use iron_queue_rs::api::routes;
@@ -15,10 +16,13 @@ fn main() -> Result<(), Box<dyn Error>> {
 }
 
 async fn async_main(config: env_config::EnvConfig) -> Result<(), Box<dyn Error>> {
-    let app = routes::setup_routes();
+    let pool = PgPoolOptions::new()
+        .max_connections(5)
+        .connect(&config.database_url)
+        .await?;
 
     let listener = tokio::net::TcpListener::bind(&config.api_addr).await?;
-    axum::serve(listener, app).await?;
+    axum::serve(listener, routes::setup_routes(pool)).await?;
 
     Ok(())
 }

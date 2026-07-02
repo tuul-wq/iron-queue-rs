@@ -1,6 +1,6 @@
 use axum::{extract::Path, http::StatusCode};
 use uuid::Uuid;
 
-pub async fn cancel_job(Path(job_id): Path<Uuid>) -> StatusCode {
+pub async fn cancel_job(Path(_job_id): Path<Uuid>) -> StatusCode {
     StatusCode::OK
 }

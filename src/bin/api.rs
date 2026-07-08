@@ -1,3 +1,4 @@
+use iron_queue_rs::storage::job_repository::JobRepository;
 use sqlx::postgres::PgPoolOptions;
 use std::error::Error;
 
@@ -22,7 +23,12 @@ async fn async_main(config: env_config::EnvConfig) -> Result<(), Box<dyn Error>>
         .await?;
 
     let listener = tokio::net::TcpListener::bind(&config.api_addr).await?;
-    axum::serve(listener, routes::setup_routes(pool)).await?;
+
+    let state = routes::AppState {
+        job_repository: JobRepository::new(pool),
+    };
+
+    axum::serve(listener, routes::setup_routes(state)).await?;
 
     Ok(())
 }

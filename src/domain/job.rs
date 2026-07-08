@@ -10,7 +10,7 @@ pub struct Job {
     pub payload: serde_json::Value,
     pub status: JobStatus,
     pub priority: JobPriority,
-    pub current_retries: i16,
+    pub retry_count: i16,
     pub max_retries: i16,
 
     #[serde(with = "time::serde::rfc3339")]

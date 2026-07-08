@@ -20,16 +20,18 @@ CREATE TABLE jobs (
     name TEXT NOT NULL,
     kind TEXT NOT NULL,
     payload JSONB NOT NULL,
-    status job_status NOT NULL DEFAULT 'queued',
+    status job_status NOT NULL,
 
-    priority job_priority NOT NULL DEFAULT 'normal',
-    current_retries SMALLINT NOT NULL DEFAULT 0,
-    max_retries SMALLINT NOT NULL DEFAULT 3,
+    priority job_priority NOT NULL,
+    retry_count SMALLINT NOT NULL DEFAULT 0,
+    max_retries SMALLINT NOT NULL,
 
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
 
+    CONSTRAINT jobs_name_not_empty CHECK (length(trim(name)) > 0),
     CONSTRAINT jobs_kind_not_empty CHECK (length(trim(kind)) > 0),
-    CONSTRAINT jobs_current_retries_non_negative CHECK (current_retries >= 0),
-    CONSTRAINT jobs_max_retries_non_negative CHECK (max_retries >= 0)
+    CONSTRAINT jobs_retry_count_non_negative CHECK (retry_count >= 0),
+    CONSTRAINT jobs_max_retries_non_negative CHECK (max_retries >= 0),
+    CONSTRAINT jobs_retry_count_within_limit CHECK (retry_count <= max_retries)
 );

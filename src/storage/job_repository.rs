@@ -1,4 +1,5 @@
 use sqlx::PgPool;
+use uuid::Uuid;
 
 use super::errors::JobRepositoryError;
 use crate::domain::{
@@ -29,7 +30,7 @@ impl JobRepository {
                 payload,
                 status AS "status: JobStatus",
                 priority AS "priority: JobPriority",
-                current_retries,
+                retry_count,
                 max_retries,
                 created_at,
                 updated_at
@@ -46,11 +47,20 @@ impl JobRepository {
         Ok(created_job)
     }
 
-    pub async fn get_job(&self) -> Result<Job, JobRepositoryError> {
+    pub async fn get_job(&self, job_id: Uuid) -> Result<Job, JobRepositoryError> {
         todo!();
+        // let job = sqlx::query_as!(Job, r#" SELECT * FROM jobs WHERE id = $1 "#, job_id)
+        //     .fetch_optional(&self.pool)
+        //     .await?;
+
+        // Ok(job)
     }
 
     pub async fn list_jobs(&self) -> Result<Vec<Job>, JobRepositoryError> {
         todo!();
     }
+
+    // pub async fn cancel_job(&self) -> Result<Job, JobRepositoryError> {
+    //     todo!();
+    // }
 }

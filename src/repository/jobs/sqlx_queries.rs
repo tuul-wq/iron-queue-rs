@@ -60,7 +60,7 @@ impl JobRepository {
         todo!();
     }
 
-    // pub async fn cancel_job(&self) -> Result<Job, JobRepositoryError> {
-    //     todo!();
-    // }
+    pub async fn cancel_job(&self, job_id: Uuid) -> Result<Job, JobRepositoryError> {
+        todo!();
+    }
 }

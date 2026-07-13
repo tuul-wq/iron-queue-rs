@@ -14,7 +14,7 @@ use crate::{
 };
 
 #[derive(Serialize)]
-pub struct CreateJobResponse {
+pub struct JobResponse {
     id: Uuid,
     name: String,
     priority: JobPriority,
@@ -23,26 +23,7 @@ pub struct CreateJobResponse {
     created_at: OffsetDateTime,
 }
 
-#[derive(Debug, thiserror::Error)]
-pub enum CreateJobError {
-    #[error(transparent)]
-    Validation(#[from] validator::ValidationErrors),
-    #[error(transparent)]
-    Repository(#[from] JobRepositoryError),
-}
-
-impl IntoResponse for CreateJobError {
-    fn into_response(self) -> Response {
-        let (code, message) = match &self {
-            CreateJobError::Validation(err) => (StatusCode::BAD_REQUEST, err.to_string()),
-            CreateJobError::Repository(err) => (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()),
-        };
-
-        (code, Json(json! { message })).into_response()
-    }
-}
-
-impl From<Job> for CreateJobResponse {
+impl From<Job> for JobResponse {
     fn from(job: Job) -> Self {
         Self {
             id: job.id,
@@ -51,5 +32,24 @@ impl From<Job> for CreateJobResponse {
             max_retries: job.max_retries,
             created_at: job.created_at,
         }
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum JobError {
+    #[error(transparent)]
+    Validation(#[from] validator::ValidationErrors),
+    #[error(transparent)]
+    Repository(#[from] JobRepositoryError),
+}
+
+impl IntoResponse for JobError {
+    fn into_response(self) -> Response {
+        let (code, message) = match &self {
+            JobError::Validation(err) => (StatusCode::BAD_REQUEST, err.to_string()),
+            JobError::Repository(err) => (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()),
+        };
+
+        (code, Json(json!({ "message": message }))).into_response()
     }
 }

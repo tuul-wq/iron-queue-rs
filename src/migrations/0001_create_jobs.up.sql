@@ -18,7 +18,6 @@ CREATE TABLE jobs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
     name TEXT NOT NULL,
-    kind TEXT NOT NULL,
     payload JSONB NOT NULL,
     status job_status NOT NULL,
 
@@ -30,7 +29,6 @@ CREATE TABLE jobs (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
 
     CONSTRAINT jobs_name_not_empty CHECK (length(trim(name)) > 0),
-    CONSTRAINT jobs_kind_not_empty CHECK (length(trim(kind)) > 0),
     CONSTRAINT jobs_retry_count_non_negative CHECK (retry_count >= 0),
     CONSTRAINT jobs_max_retries_non_negative CHECK (max_retries >= 0),
     CONSTRAINT jobs_retry_count_within_limit CHECK (retry_count <= max_retries)

@@ -1,8 +1,8 @@
-use iron_queue_rs::storage::job_repository::JobRepository;
+use iron_queue_rs::repository::jobs::JobRepository;
 use sqlx::postgres::PgPoolOptions;
 use std::error::Error;
 
-use iron_queue_rs::api::routes;
+use iron_queue_rs::api;
 use iron_queue_rs::env_config;
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -24,11 +24,11 @@ async fn async_main(config: env_config::EnvConfig) -> Result<(), Box<dyn Error>>
 
     let listener = tokio::net::TcpListener::bind(&config.api_addr).await?;
 
-    let state = routes::AppState {
+    let state = api::AppState {
         job_repository: JobRepository::new(pool),
     };
 
-    axum::serve(listener, routes::setup_routes(state)).await?;
+    axum::serve(listener, api::setup_routes(state)).await?;
 
     Ok(())
 }

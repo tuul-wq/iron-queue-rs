@@ -1,10 +1,9 @@
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use super::errors::JobRepositoryError;
-use crate::domain::{
-    job::{Job, JobPriority, JobStatus},
-    new_job::NewJob,
+use crate::{
+    domain::jobs::{CreateJobCommand, Job, JobPriority, JobStatus},
+    repository::jobs::{JobRepositoryError, JobRow},
 };
 
 #[derive(Clone)]
@@ -17,16 +16,17 @@ impl JobRepository {
         Self { pool }
     }
 
-    pub async fn create_job(&self, new_job: NewJob) -> Result<Job, JobRepositoryError> {
+    pub async fn create_job(&self, command: CreateJobCommand) -> Result<Job, JobRepositoryError> {
+        let payload = serde_json::to_value(command.payload)?;
+
         let created_job = sqlx::query_as!(
-            Job,
+            JobRow,
             r#"
-              INSERT INTO jobs (name, kind, payload, priority, max_retries)
+              INSERT INTO jobs (name, status, payload, priority, max_retries)
               VALUES ($1, $2, $3, $4, $5)
               RETURNING
                 id,
                 name,
-                kind,
                 payload,
                 status AS "status: JobStatus",
                 priority AS "priority: JobPriority",
@@ -35,16 +35,16 @@ impl JobRepository {
                 created_at,
                 updated_at
           "#,
-            new_job.name,
-            new_job.kind,
-            new_job.payload,
-            new_job.priority as JobPriority,
-            new_job.max_retries,
+            command.name,
+            command.status as JobStatus,
+            payload,
+            command.priority as JobPriority,
+            command.max_retries,
         )
         .fetch_one(&self.pool)
         .await?;
 
-        Ok(created_job)
+        created_job.try_into()
     }
 
     pub async fn get_job(&self, job_id: Uuid) -> Result<Job, JobRepositoryError> {

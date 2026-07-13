@@ -34,7 +34,7 @@ impl JobRepository {
                 max_retries,
                 created_at,
                 updated_at
-          "#,
+            "#,
             name,
             JobStatus::Queued as JobStatus,
             serde_json::to_value(payload)?,
@@ -44,20 +44,55 @@ impl JobRepository {
         .fetch_one(&self.pool)
         .await?;
 
-        created_job.try_into()
+        Job::try_from(created_job)
     }
 
-    pub async fn get_job(&self, job_id: Uuid) -> Result<Job, JobRepositoryError> {
-        todo!();
-        // let job = sqlx::query_as!(Job, r#" SELECT * FROM jobs WHERE id = $1 "#, job_id)
-        //     .fetch_optional(&self.pool)
-        //     .await?;
+    pub async fn get_job(&self, job_id: Uuid) -> Result<Option<Job>, JobRepositoryError> {
+        let job = sqlx::query_as!(
+            JobRow,
+            r#"
+              SELECT
+                id,
+                name,
+                payload,
+                status AS "status: JobStatus",
+                priority AS "priority: JobPriority",
+                retry_count,
+                max_retries,
+                created_at,
+                updated_at
+              FROM jobs
+              WHERE id = $1
+          "#,
+            job_id
+        )
+        .fetch_optional(&self.pool)
+        .await?;
 
-        // Ok(job)
+        job.map(Job::try_from).transpose()
     }
 
     pub async fn list_jobs(&self) -> Result<Vec<Job>, JobRepositoryError> {
-        todo!();
+        let jobs = sqlx::query_as!(
+            JobRow,
+            r#"
+            SELECT
+              id,
+              name,
+              payload,
+              status AS "status: JobStatus",
+              priority AS "priority: JobPriority",
+              retry_count,
+              max_retries,
+              created_at,
+              updated_at
+            FROM jobs
+        "#
+        )
+        .fetch_all(&self.pool)
+        .await?;
+
+        jobs.into_iter().map(Job::try_from).collect()
     }
 
     pub async fn cancel_job(&self, job_id: Uuid) -> Result<Job, JobRepositoryError> {

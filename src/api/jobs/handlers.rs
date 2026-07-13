@@ -27,7 +27,11 @@ pub async fn get_job(
 ) -> Result<(StatusCode, Json<JobResponse>), JobError> {
     let job = state.job_repository.get_job(job_id).await?;
 
-    Ok((StatusCode::OK, Json(job.into())))
+    if let Some(job) = job {
+        return Ok((StatusCode::OK, Json(job.into())));
+    };
+
+    Err(JobError::NotFound)
 }
 
 pub async fn list_jobs(

@@ -43,6 +43,8 @@ pub enum JobError {
     Validation(#[from] validator::ValidationErrors),
     #[error(transparent)]
     Repository(#[from] JobRepositoryError),
+    #[error("Job not found")]
+    NotFound,
 }
 
 impl IntoResponse for JobError {
@@ -50,6 +52,7 @@ impl IntoResponse for JobError {
         let (code, message) = match &self {
             JobError::Validation(err) => (StatusCode::BAD_REQUEST, err.to_string()),
             JobError::Repository(err) => (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()),
+            JobError::NotFound => (StatusCode::NOT_FOUND, "Job not found".to_string()),
         };
 
         (code, Json(json!({ "message": message }))).into_response()

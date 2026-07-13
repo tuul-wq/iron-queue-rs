@@ -9,7 +9,7 @@ use time::OffsetDateTime;
 use uuid::Uuid;
 
 use crate::{
-    domain::jobs::{Job, JobPriority},
+    domain::jobs::{Job, JobPriority, JobStatus},
     repository::jobs::JobRepositoryError,
 };
 
@@ -18,6 +18,7 @@ pub struct JobResponse {
     id: Uuid,
     name: String,
     priority: JobPriority,
+    status: JobStatus,
     max_retries: i16,
     #[serde(with = "time::serde::rfc3339")]
     created_at: OffsetDateTime,
@@ -29,6 +30,7 @@ impl From<Job> for JobResponse {
             id: job.id,
             name: job.name,
             priority: job.priority,
+            status: job.status,
             max_retries: job.max_retries,
             created_at: job.created_at,
         }

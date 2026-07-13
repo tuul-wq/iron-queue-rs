@@ -17,7 +17,7 @@ impl JobRepository {
     }
 
     pub async fn create_job(&self, command: CreateJobCommand) -> Result<Job, JobRepositoryError> {
-        let payload = serde_json::to_value(command.payload)?;
+        let (name, payload, priority, max_retries) = command.into_parts();
 
         let created_job = sqlx::query_as!(
             JobRow,
@@ -35,11 +35,11 @@ impl JobRepository {
                 created_at,
                 updated_at
           "#,
-            command.name,
-            command.status as JobStatus,
-            payload,
-            command.priority as JobPriority,
-            command.max_retries,
+            name,
+            JobStatus::Queued as JobStatus,
+            serde_json::to_value(payload)?,
+            priority as JobPriority,
+            max_retries,
         )
         .fetch_one(&self.pool)
         .await?;

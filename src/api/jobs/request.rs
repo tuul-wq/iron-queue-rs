@@ -1,7 +1,7 @@
 use serde::Deserialize;
-use validator::{Validate, ValidationErrors};
+use validator::ValidationErrors;
 
-use crate::domain::jobs::{CreateJobCommand, JobPayload, JobPriority, JobStatus};
+use crate::domain::jobs::{CreateJobCommand, JobPayload, JobPriority};
 
 #[derive(Deserialize)]
 pub struct CreateJobRequest {
@@ -15,16 +15,6 @@ impl TryFrom<CreateJobRequest> for CreateJobCommand {
     type Error = ValidationErrors;
 
     fn try_from(body: CreateJobRequest) -> Result<Self, Self::Error> {
-        let command = CreateJobCommand {
-            name: body.name,
-            status: JobStatus::Queued,
-            payload: body.payload,
-            priority: body.priority,
-            max_retries: body.max_retries,
-        };
-
-        command.validate()?;
-
-        Ok(command)
+        CreateJobCommand::try_new(body.name, body.payload, body.priority, body.max_retries)
     }
 }

@@ -2,7 +2,7 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::{
-    domain::jobs::{CreateJobCommand, Job, JobPriority, JobStatus},
+    domain::jobs::{Job, JobPriority, JobStatus, NewQueuedJob},
     repository::jobs::{JobRepositoryError, JobRow},
 };
 
@@ -16,8 +16,8 @@ impl JobRepository {
         Self { pool }
     }
 
-    pub async fn create_job(&self, command: CreateJobCommand) -> Result<Job, JobRepositoryError> {
-        let (name, payload, priority, max_retries) = command.into_parts();
+    pub async fn insert_queued(&self, job: NewQueuedJob) -> Result<Job, JobRepositoryError> {
+        let (name, payload, priority, max_retries) = job.into_parts();
 
         let created_job = sqlx::query_as!(
             JobRow,

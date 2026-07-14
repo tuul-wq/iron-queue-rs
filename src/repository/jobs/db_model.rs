@@ -20,8 +20,8 @@ impl TryFrom<JobRow> for Job {
     type Error = JobRepositoryError;
 
     fn try_from(row: JobRow) -> Result<Self, Self::Error> {
-        let payload: JobPayload = serde_json::from_value(row.payload)
-            .map_err(|err| JobRepositoryError::InvalidPayload(err))?;
+        let payload: JobPayload =
+            serde_json::from_value(row.payload).map_err(JobRepositoryError::InvalidPayload)?;
 
         Ok(Self {
             id: row.id,

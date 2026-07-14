@@ -1,9 +1,9 @@
 use validator::{Validate, ValidationError, ValidationErrors};
 
-use super::{JobPayload, JobPriority};
+use super::{JobPayload, JobPriority, NewQueuedJob};
 
 #[derive(Validate)]
-pub struct CreateJobCommand {
+pub struct EnqueueJobCommand {
     #[validate(length(min = 1, max = 50))]
     #[validate(custom(function = "validate_name"))]
     name: String,
@@ -21,7 +21,7 @@ fn validate_name(name: &str) -> Result<(), ValidationError> {
     Ok(())
 }
 
-impl CreateJobCommand {
+impl EnqueueJobCommand {
     pub fn try_new(
         name: String,
         payload: JobPayload,
@@ -40,7 +40,7 @@ impl CreateJobCommand {
         Ok(command)
     }
 
-    pub(crate) fn into_parts(self) -> (String, JobPayload, JobPriority, i16) {
-        (self.name, self.payload, self.priority, self.max_retries)
+    pub fn into_new_job(self) -> NewQueuedJob {
+        NewQueuedJob::new(self.name, self.payload, self.priority, self.max_retries)
     }
 }

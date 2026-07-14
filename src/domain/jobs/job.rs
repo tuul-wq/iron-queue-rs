@@ -14,6 +14,28 @@ pub struct Job {
     pub updated_at: OffsetDateTime,
 }
 
+pub struct NewQueuedJob {
+    name: String,
+    payload: JobPayload,
+    priority: JobPriority,
+    max_retries: i16,
+}
+
+impl NewQueuedJob {
+    pub fn new(name: String, payload: JobPayload, priority: JobPriority, max_retries: i16) -> Self {
+        Self {
+            name,
+            payload,
+            priority,
+            max_retries,
+        }
+    }
+
+    pub fn into_parts(self) -> (String, JobPayload, JobPriority, i16) {
+        (self.name, self.payload, self.priority, self.max_retries)
+    }
+}
+
 #[derive(Serialize, Deserialize, sqlx::Type)]
 #[sqlx(type_name = "job_priority", rename_all = "snake_case")]
 pub enum JobPriority {

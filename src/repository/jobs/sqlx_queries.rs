@@ -95,7 +95,9 @@ impl JobRepository {
         jobs.into_iter().map(Job::try_from).collect()
     }
 
-    pub async fn cancel_job(&self, job_id: Uuid) -> Result<Job, JobRepositoryError> {
-        todo!();
+    pub async fn cancel_job(&self, _job_id: Uuid) -> Result<Job, JobRepositoryError> {
+        Err(JobRepositoryError::DatabaseFail(
+            sqlx::Error::InvalidArgument("Just an Error".to_string()),
+        ))
     }
 }

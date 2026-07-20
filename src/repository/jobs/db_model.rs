@@ -4,6 +4,7 @@ use uuid::Uuid;
 use super::JobRepositoryError;
 use crate::domain::jobs::{Job, JobPayload, JobPriority, JobStatus};
 
+#[derive(sqlx::FromRow)]
 pub struct JobRow {
     pub id: Uuid,
     pub name: String,
@@ -12,6 +13,10 @@ pub struct JobRow {
     pub priority: JobPriority,
     pub retry_count: i16,
     pub max_retries: i16,
+    pub locked_by: Option<Uuid>,
+    pub locked_at: Option<OffsetDateTime>,
+    pub run_at: Option<OffsetDateTime>,
+    pub last_error: Option<String>,
     pub created_at: OffsetDateTime,
     pub updated_at: OffsetDateTime,
 }
@@ -31,6 +36,10 @@ impl TryFrom<JobRow> for Job {
             priority: row.priority,
             retry_count: row.retry_count,
             max_retries: row.max_retries,
+            locked_by: row.locked_by,
+            locked_at: row.locked_at,
+            run_at: row.run_at,
+            last_error: row.last_error,
             created_at: row.created_at,
             updated_at: row.updated_at,
         })

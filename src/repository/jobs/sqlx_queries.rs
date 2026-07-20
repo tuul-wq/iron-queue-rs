@@ -2,7 +2,7 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::{
-    domain::jobs::{Job, JobPriority, JobStatus, NewQueuedJob},
+    domain::jobs::{Job, JobStatus, NewQueuedJob},
     repository::jobs::{JobRepositoryError, JobRow},
 };
 
@@ -19,28 +19,18 @@ impl JobRepository {
     pub async fn insert_queued(&self, job: NewQueuedJob) -> Result<Job, JobRepositoryError> {
         let (name, payload, priority, max_retries) = job.into_parts();
 
-        let created_job = sqlx::query_as!(
-            JobRow,
+        let created_job = sqlx::query_as::<_, JobRow>(
             r#"
               INSERT INTO jobs (name, status, payload, priority, max_retries)
               VALUES ($1, $2, $3, $4, $5)
-              RETURNING
-                id,
-                name,
-                payload,
-                status AS "status: JobStatus",
-                priority AS "priority: JobPriority",
-                retry_count,
-                max_retries,
-                created_at,
-                updated_at
+              RETURNING *
             "#,
-            name,
-            JobStatus::Queued as JobStatus,
-            serde_json::to_value(payload)?,
-            priority as JobPriority,
-            max_retries,
         )
+        .bind(name)
+        .bind(JobStatus::Queued)
+        .bind(serde_json::to_value(payload)?)
+        .bind(priority)
+        .bind(max_retries)
         .fetch_one(&self.pool)
         .await?;
 
@@ -48,24 +38,14 @@ impl JobRepository {
     }
 
     pub async fn get_job(&self, job_id: Uuid) -> Result<Option<Job>, JobRepositoryError> {
-        let job = sqlx::query_as!(
-            JobRow,
+        let job = sqlx::query_as::<_, JobRow>(
             r#"
-              SELECT
-                id,
-                name,
-                payload,
-                status AS "status: JobStatus",
-                priority AS "priority: JobPriority",
-                retry_count,
-                max_retries,
-                created_at,
-                updated_at
+              SELECT *
               FROM jobs
               WHERE id = $1
           "#,
-            job_id
         )
+        .bind(job_id)
         .fetch_optional(&self.pool)
         .await?;
 
@@ -73,21 +53,10 @@ impl JobRepository {
     }
 
     pub async fn list_jobs(&self) -> Result<Vec<Job>, JobRepositoryError> {
-        let jobs = sqlx::query_as!(
-            JobRow,
+        let jobs = sqlx::query_as::<_, JobRow>(
             r#"
-            SELECT
-              id,
-              name,
-              payload,
-              status AS "status: JobStatus",
-              priority AS "priority: JobPriority",
-              retry_count,
-              max_retries,
-              created_at,
-              updated_at
-            FROM jobs
-        "#
+            SELECT * FROM jobs
+        "#,
         )
         .fetch_all(&self.pool)
         .await?;
@@ -99,5 +68,50 @@ impl JobRepository {
         Err(JobRepositoryError::DatabaseFail(
             sqlx::Error::InvalidArgument("Just an Error".to_string()),
         ))
+    }
+
+    pub async fn claim_next(&self, worker_id: Uuid) -> Result<Option<Job>, JobRepositoryError> {
+        let job = sqlx::query_as::<_, JobRow>(
+            r#"
+            WITH new_job AS (
+              SELECT id
+              FROM jobs
+              WHERE status='queued'
+              ORDER BY priority DESC, created_at ASC
+              FOR UPDATE SKIP LOCKED
+              LIMIT 1
+            )
+            UPDATE jobs
+            SET
+              status = 'running',
+              locked_by = $1,
+              locked_at = now(),
+              updated_at = now()
+            WHERE id = (SELECT id FROM new_job)
+            RETURNING *
+          "#,
+        )
+        .bind(worker_id)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(job.map(Job::try_from).transpose()?)
+    }
+
+    pub async fn mark_completed(
+        &self,
+        _job_id: Uuid,
+        _worker_id: Uuid,
+    ) -> Result<(), JobRepositoryError> {
+        todo!();
+    }
+
+    pub async fn mark_failed(
+        &self,
+        _job_id: Uuid,
+        _worker_id: Uuid,
+        _error: &str,
+    ) -> Result<(), JobRepositoryError> {
+        todo!();
     }
 }

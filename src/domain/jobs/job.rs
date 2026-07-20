@@ -10,6 +10,10 @@ pub struct Job {
     pub priority: JobPriority,
     pub retry_count: i16,
     pub max_retries: i16,
+    pub locked_by: Option<Uuid>,
+    pub locked_at: Option<OffsetDateTime>,
+    pub run_at: Option<OffsetDateTime>,
+    pub last_error: Option<String>,
     pub created_at: OffsetDateTime,
     pub updated_at: OffsetDateTime,
 }

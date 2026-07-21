@@ -8,8 +8,8 @@ use iron_queue_rs::api;
 use iron_queue_rs::env_config;
 
 fn main() -> Result<(), Box<dyn Error>> {
-    tracing_subscriber::fmt::init();
     dotenvy::dotenv().ok();
+    tracing_subscriber::fmt::init();
 
     let config = env_config::EnvConfig::from_env()?;
 

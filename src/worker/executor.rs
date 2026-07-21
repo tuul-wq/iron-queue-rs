@@ -21,7 +21,7 @@ pub async fn execute_job(job: JobPayload) -> Result<(), ExecutionError> {
 }
 
 async fn handle_send_email(email_payload: SendEmailPayload) -> Result<(), ExecutionError> {
-    info!(job_kind = "send_email", receiver = %email_payload.to);
+    info!(job_kind = "send_email", subject = %email_payload.subject);
     sleep(Duration::from_secs(1)).await;
 
     if email_payload.template_id == "unsupported" {
@@ -34,6 +34,7 @@ async fn handle_send_email(email_payload: SendEmailPayload) -> Result<(), Execut
             "Email template is unsupported".to_string(),
         ))
     } else {
+        info!(job_kind = "send_email", "job execution succeeded");
         Ok(())
     }
 }
@@ -54,6 +55,7 @@ async fn handle_generate_report(
             "Report type is unsupported".to_string(),
         ))
     } else {
+        info!(job_kind = "generate_report", "job execution succeeded");
         Ok(())
     }
 }

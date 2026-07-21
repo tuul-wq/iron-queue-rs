@@ -1,13 +1,14 @@
 use std::time::Duration;
 
 use tokio::time::sleep;
+use tracing::{info, warn};
 
 use crate::domain::jobs::{GenerateReportPayload, JobPayload, SendEmailPayload};
 
 #[derive(Debug, thiserror::Error)]
 pub enum ExecutionError {
     #[error("Failed with error {0}")]
-    Failed(String),
+    Unsupported(String),
 }
 
 pub async fn execute_job(job: JobPayload) -> Result<(), ExecutionError> {
@@ -20,10 +21,16 @@ pub async fn execute_job(job: JobPayload) -> Result<(), ExecutionError> {
 }
 
 async fn handle_send_email(email_payload: SendEmailPayload) -> Result<(), ExecutionError> {
+    info!(job_kind = "send_email", receiver = %email_payload.to);
     sleep(Duration::from_secs(1)).await;
 
     if email_payload.template_id == "unsupported" {
-        Err(ExecutionError::Failed(
+        warn!(
+            job_kind = "send_email",
+            reason = "email template is unsupported",
+            "job execution failed"
+        );
+        Err(ExecutionError::Unsupported(
             "Email template is unsupported".to_string(),
         ))
     } else {
@@ -34,11 +41,17 @@ async fn handle_send_email(email_payload: SendEmailPayload) -> Result<(), Execut
 async fn handle_generate_report(
     report_payload: GenerateReportPayload,
 ) -> Result<(), ExecutionError> {
+    info!(job_kind = "generate_report", format = %String::from(report_payload.format));
     sleep(Duration::from_secs(1)).await;
 
     if report_payload.report_type == "unsupported" {
-        Err(ExecutionError::Failed(
-            "Report template is unsupported".to_string(),
+        warn!(
+            job_kind = "generate_report",
+            reason = "report type is unsupported",
+            "job execution failed"
+        );
+        Err(ExecutionError::Unsupported(
+            "Report type is unsupported".to_string(),
         ))
     } else {
         Ok(())

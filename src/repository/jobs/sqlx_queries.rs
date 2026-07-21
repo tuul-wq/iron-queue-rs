@@ -103,13 +103,14 @@ impl JobRepository {
         job_id: Uuid,
         worker_id: Uuid,
     ) -> Result<(), JobRepositoryError> {
-        sqlx::query(
+        let result = sqlx::query(
             r#"
             UPDATE jobs
             SET
               status = 'completed',
               locked_by = NULL,
               locked_at = NULL,
+              last_error = NULL,
               updated_at = now()
             WHERE id = $1 AND locked_by = $2 AND status = 'running'
           "#,
@@ -119,7 +120,11 @@ impl JobRepository {
         .execute(&self.pool)
         .await?;
 
-        Ok(())
+        if result.rows_affected() == 1 {
+            Ok(())
+        } else {
+            Err(JobRepositoryError::JobTransitionRejected(job_id))
+        }
     }
 
     pub async fn mark_failed(
@@ -128,7 +133,7 @@ impl JobRepository {
         worker_id: Uuid,
         error: &str,
     ) -> Result<(), JobRepositoryError> {
-        sqlx::query(
+        let result = sqlx::query(
             r#"
             UPDATE jobs
             SET
@@ -138,7 +143,6 @@ impl JobRepository {
               last_error = $3,
               updated_at = now()
             WHERE id = $1 AND locked_by = $2 AND status = 'running'
-            RETURNING *
           "#,
         )
         .bind(job_id)
@@ -147,6 +151,10 @@ impl JobRepository {
         .execute(&self.pool)
         .await?;
 
-        Ok(())
+        if result.rows_affected() == 1 {
+            Ok(())
+        } else {
+            Err(JobRepositoryError::JobTransitionRejected(job_id))
+        }
     }
 }

@@ -88,3 +88,13 @@ pub enum ReportFormat {
     Csv,
     Excel,
 }
+
+impl From<ReportFormat> for String {
+    fn from(format: ReportFormat) -> Self {
+        match format {
+            ReportFormat::Pdf => "pdf".to_owned(),
+            ReportFormat::Csv => "csv".to_owned(),
+            ReportFormat::Excel => "excel".to_owned(),
+        }
+    }
+}

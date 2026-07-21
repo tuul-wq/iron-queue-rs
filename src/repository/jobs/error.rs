@@ -1,3 +1,5 @@
+use uuid::Uuid;
+
 #[derive(Debug, thiserror::Error)]
 pub enum JobRepositoryError {
     #[error("Postgres error: {0}")]
@@ -5,4 +7,7 @@ pub enum JobRepositoryError {
 
     #[error("Invalid persisted job payload: {0}")]
     InvalidPayload(#[from] serde_json::Error),
+
+    #[error("Job transition rejected: {0}")]
+    JobTransitionRejected(Uuid),
 }

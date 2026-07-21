@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use time::OffsetDateTime;
 use uuid::Uuid;
 
@@ -70,7 +71,7 @@ pub struct SendEmailPayload {
     pub to: String,
     pub subject: String,
     pub template_id: String,
-    pub variables: std::collections::HashMap<String, String>,
+    pub variables: HashMap<String, String>,
 }
 
 #[derive(Serialize, Deserialize)]

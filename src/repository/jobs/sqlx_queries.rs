@@ -130,18 +130,20 @@ impl JobRepository {
     ) -> Result<(), JobRepositoryError> {
         sqlx::query(
             r#"
-          UPDATE jobs
-          SET
-            status = 'failed',
-            locked_by = NULL,
-            locked_at = NULL,
-            updated_at = now()
-          WHERE id = $1 AND locked_by = $2 AND status = 'running'
-          RETURNING *
-        "#,
+            UPDATE jobs
+            SET
+              status = 'failed',
+              locked_by = NULL,
+              locked_at = NULL,
+              last_error = $3,
+              updated_at = now()
+            WHERE id = $1 AND locked_by = $2 AND status = 'running'
+            RETURNING *
+          "#,
         )
         .bind(job_id)
         .bind(worker_id)
+        .bind(error)
         .execute(&self.pool)
         .await?;
 

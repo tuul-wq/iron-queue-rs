@@ -100,18 +100,51 @@ impl JobRepository {
 
     pub async fn mark_completed(
         &self,
-        _job_id: Uuid,
-        _worker_id: Uuid,
+        job_id: Uuid,
+        worker_id: Uuid,
     ) -> Result<(), JobRepositoryError> {
-        todo!();
+        sqlx::query(
+            r#"
+            UPDATE jobs
+            SET
+              status = 'completed',
+              locked_by = NULL,
+              locked_at = NULL,
+              updated_at = now()
+            WHERE id = $1 AND locked_by = $2 AND status = 'running'
+          "#,
+        )
+        .bind(job_id)
+        .bind(worker_id)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(())
     }
 
     pub async fn mark_failed(
         &self,
-        _job_id: Uuid,
-        _worker_id: Uuid,
-        _error: &str,
+        job_id: Uuid,
+        worker_id: Uuid,
+        error: &str,
     ) -> Result<(), JobRepositoryError> {
-        todo!();
+        sqlx::query(
+            r#"
+          UPDATE jobs
+          SET
+            status = 'failed',
+            locked_by = NULL,
+            locked_at = NULL,
+            updated_at = now()
+          WHERE id = $1 AND locked_by = $2 AND status = 'running'
+          RETURNING *
+        "#,
+        )
+        .bind(job_id)
+        .bind(worker_id)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(())
     }
 }

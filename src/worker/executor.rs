@@ -21,7 +21,7 @@ pub async fn execute_job(job: JobPayload) -> Result<(), ExecutionError> {
 }
 
 async fn handle_send_email(email_payload: SendEmailPayload) -> Result<(), ExecutionError> {
-    info!(job_kind = "send_email", subject = %email_payload.subject);
+    info!(job_kind = "send_email", "job execution started");
     sleep(Duration::from_secs(1)).await;
 
     if email_payload.template_id == "unsupported" {
@@ -42,7 +42,7 @@ async fn handle_send_email(email_payload: SendEmailPayload) -> Result<(), Execut
 async fn handle_generate_report(
     report_payload: GenerateReportPayload,
 ) -> Result<(), ExecutionError> {
-    info!(job_kind = "generate_report", format = %String::from(report_payload.format));
+    info!(job_kind = "generate_report", format = %String::from(report_payload.format), "job execution started");
     sleep(Duration::from_secs(1)).await;
 
     if report_payload.report_type == "unsupported" {

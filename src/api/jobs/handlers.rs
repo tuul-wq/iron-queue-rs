@@ -3,6 +3,7 @@ use axum::{
     extract::{Path, State},
     http::StatusCode,
 };
+use tracing::{info, instrument, warn};
 use uuid::Uuid;
 
 use super::request::CreateJobRequest;
@@ -10,17 +11,23 @@ use super::response::{JobError, JobResponse};
 
 use crate::{api::routes::AppState, domain::jobs::EnqueueJobCommand};
 
+#[instrument(skip(state, body))]
 pub async fn enqueue_job(
     State(state): State<AppState>,
     Json(body): Json<CreateJobRequest>,
 ) -> Result<(StatusCode, Json<JobResponse>), JobError> {
-    let command = EnqueueJobCommand::try_from(body)?;
+    let command = EnqueueJobCommand::try_from(body).map_err(|error| {
+        warn!(error = %error, "job enqueue request rejected");
+        error
+    })?;
 
     let job = state.job_service.enqueue(command).await?;
+    info!(job_id = %job.id, "job enqueued");
 
     Ok((StatusCode::CREATED, Json(job.into())))
 }
 
+#[instrument(skip(state))]
 pub async fn get_job(
     State(state): State<AppState>,
     Path(job_id): Path<Uuid>,
@@ -30,6 +37,7 @@ pub async fn get_job(
     Ok((StatusCode::OK, Json(job.into())))
 }
 
+#[instrument(skip(state))]
 pub async fn list_jobs(
     State(state): State<AppState>,
 ) -> Result<(StatusCode, Json<Vec<JobResponse>>), JobError> {
@@ -41,11 +49,13 @@ pub async fn list_jobs(
     ))
 }
 
+#[instrument(skip(state))]
 pub async fn cancel_job(
     State(state): State<AppState>,
     Path(job_id): Path<Uuid>,
 ) -> Result<StatusCode, JobError> {
     state.job_service.cancel_job(job_id).await?;
+    info!(job_id = %job_id, "job cancelled");
 
     Ok(StatusCode::OK)
 }

@@ -2,4 +2,4 @@ pub mod executor;
 pub mod runner;
 
 pub use executor::{ExecutionError, execute_job};
-pub use runner::run_once;
+pub use runner::{RunnerError, RunnerOutcome, WorkerRunner};

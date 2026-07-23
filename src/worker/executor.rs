@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use tokio::time::sleep;
-use tracing::{info, warn};
+use tracing::{info, instrument, warn};
 
 use crate::domain::jobs::{GenerateReportPayload, JobPayload, SendEmailPayload};
 
@@ -17,6 +17,7 @@ pub enum ExecutionError {
     Unsupported(String),
 }
 
+#[instrument(level = "info", skip(job_payload))]
 pub async fn execute_job(job_payload: &JobPayload) -> Result<(), ExecutionError> {
     match job_payload {
         JobPayload::SendEmail(payload) => handle_send_email(payload).await?,
@@ -26,6 +27,7 @@ pub async fn execute_job(job_payload: &JobPayload) -> Result<(), ExecutionError>
     Ok(())
 }
 
+#[instrument(level = "info", skip(email_payload))]
 async fn handle_send_email(email_payload: &SendEmailPayload) -> Result<(), ExecutionError> {
     info!(job_kind = "send_email", "job execution started");
     sleep(Duration::from_secs(1)).await;
@@ -45,6 +47,7 @@ async fn handle_send_email(email_payload: &SendEmailPayload) -> Result<(), Execu
     }
 }
 
+#[instrument(level = "info", skip(report_payload))]
 async fn handle_generate_report(
     report_payload: &GenerateReportPayload,
 ) -> Result<(), ExecutionError> {

@@ -1,8 +1,8 @@
 use iron_queue_rs::repository::jobs::JobRepository;
-use iron_queue_rs::worker::WorkerRunner;
+use iron_queue_rs::worker::{RunnerOutcome, WorkerRunner};
 use sqlx::postgres::PgPoolOptions;
 use std::error::Error;
-use tracing::{error, info, warn};
+use tracing::{error, info};
 use tracing_subscriber::EnvFilter;
 
 use iron_queue_rs::env_config;
@@ -36,18 +36,19 @@ async fn async_main(config: env_config::EnvConfig) -> Result<(), Box<dyn Error>>
             error
         })?;
 
-    info!("connected to PostgreSQL");
     let repository = JobRepository::new(pool);
 
-    let outcome = WorkerRunner::new()
-        .run_once(&repository)
-        .await
-        .map_err(|err| {
-            warn!(error = %err, "worker run failed");
-            err
-        })?;
+    let outcome = WorkerRunner::new().run_once(&repository).await?;
 
-    info!(outcome = %outcome, "worker run finished");
+    match outcome {
+        RunnerOutcome::Idle => info!(outcome = "idle", "worker run finished"),
+        RunnerOutcome::Completed { job_id } => {
+            info!(outcome = "completed", %job_id, "worker run finished")
+        }
+        RunnerOutcome::Failed { job_id } => {
+            info!(outcome = "failed", %job_id, "worker run finished")
+        }
+    }
 
     Ok(())
 }

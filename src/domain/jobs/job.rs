@@ -89,12 +89,12 @@ pub enum ReportFormat {
     Excel,
 }
 
-impl From<&ReportFormat> for String {
-    fn from(format: &ReportFormat) -> Self {
-        match format {
-            ReportFormat::Pdf => "pdf".to_owned(),
-            ReportFormat::Csv => "csv".to_owned(),
-            ReportFormat::Excel => "excel".to_owned(),
+impl std::fmt::Display for ReportFormat {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ReportFormat::Pdf => write!(f, "pdf"),
+            ReportFormat::Csv => write!(f, "csv"),
+            ReportFormat::Excel => write!(f, "excel"),
         }
     }
 }

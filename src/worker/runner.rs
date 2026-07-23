@@ -1,4 +1,4 @@
-use tracing::{Span, error, field, info, instrument, warn};
+use tracing::{Span, error, field, instrument};
 use uuid::Uuid;
 
 use crate::{
@@ -8,16 +8,16 @@ use crate::{
 
 pub enum RunnerOutcome {
     Idle,
-    Completed,
-    Failed,
+    Completed { job_id: Uuid },
+    Failed { job_id: Uuid },
 }
 
 impl std::fmt::Display for RunnerOutcome {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             RunnerOutcome::Idle => write!(f, "idle"),
-            RunnerOutcome::Completed => write!(f, "completed"),
-            RunnerOutcome::Failed => write!(f, "failed"),
+            RunnerOutcome::Completed { job_id } => write!(f, "completed (job_id: {})", job_id),
+            RunnerOutcome::Failed { job_id } => write!(f, "failed (job_id: {})", job_id),
         }
     }
 }
@@ -53,14 +53,12 @@ impl WorkerRunner {
         fields(worker_id = %self.id, job_id = field::Empty)
     )]
     pub async fn run_once(&self, repository: &JobRepository) -> Result<RunnerOutcome, RunnerError> {
-        info!("claiming next job");
         let job = repository.claim_next(self.id).await.map_err(|source| {
             error!(error = %source, "failed to claim next job");
             RunnerError::ClaimNext { source }
         })?;
 
         let Some(job) = job else {
-            info!("no queued job available");
             return Ok(RunnerOutcome::Idle);
         };
 
@@ -68,7 +66,6 @@ impl WorkerRunner {
 
         match execute_job(&job.payload).await {
             Ok(_) => {
-                info!("job execution completed; marking completed");
                 repository
                     .mark_completed(job.id, self.id)
                     .await
@@ -79,11 +76,9 @@ impl WorkerRunner {
                             source,
                         }
                     })?;
-                info!("job marked completed");
-                Ok(RunnerOutcome::Completed)
+                Ok(RunnerOutcome::Completed { job_id: job.id })
             }
             Err(err) => {
-                warn!(error = %err, "job execution failed; marking failed");
                 repository
                     .mark_failed(job.id, self.id, &err.to_string())
                     .await
@@ -94,8 +89,7 @@ impl WorkerRunner {
                             source,
                         }
                     })?;
-                info!("job marked failed");
-                Ok(RunnerOutcome::Failed)
+                Ok(RunnerOutcome::Failed { job_id: job.id })
             }
         }
     }

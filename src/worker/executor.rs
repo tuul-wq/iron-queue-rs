@@ -7,12 +7,18 @@ use crate::domain::jobs::{GenerateReportPayload, JobPayload, SendEmailPayload};
 
 #[derive(Debug, thiserror::Error)]
 pub enum ExecutionError {
-    #[error("Failed with error {0}")]
+    #[error("Job execution will be retried later")]
+    Retryable,
+    #[error("Job execution permanently failed")]
+    Permament,
+    #[error("Timed out, will try again later")]
+    TimeOut,
+    #[error("Unsupported {0}")]
     Unsupported(String),
 }
 
-pub async fn execute_job(job: JobPayload) -> Result<(), ExecutionError> {
-    match job {
+pub async fn execute_job(job_payload: &JobPayload) -> Result<(), ExecutionError> {
+    match job_payload {
         JobPayload::SendEmail(payload) => handle_send_email(payload).await?,
         JobPayload::GenerateReport(payload) => handle_generate_report(payload).await?,
     }
@@ -20,7 +26,7 @@ pub async fn execute_job(job: JobPayload) -> Result<(), ExecutionError> {
     Ok(())
 }
 
-async fn handle_send_email(email_payload: SendEmailPayload) -> Result<(), ExecutionError> {
+async fn handle_send_email(email_payload: &SendEmailPayload) -> Result<(), ExecutionError> {
     info!(job_kind = "send_email", "job execution started");
     sleep(Duration::from_secs(1)).await;
 
@@ -40,9 +46,9 @@ async fn handle_send_email(email_payload: SendEmailPayload) -> Result<(), Execut
 }
 
 async fn handle_generate_report(
-    report_payload: GenerateReportPayload,
+    report_payload: &GenerateReportPayload,
 ) -> Result<(), ExecutionError> {
-    info!(job_kind = "generate_report", format = %String::from(report_payload.format), "job execution started");
+    info!(job_kind = "generate_report", format = %String::from(&report_payload.format), "job execution started");
     sleep(Duration::from_secs(1)).await;
 
     if report_payload.report_type == "unsupported" {

@@ -1,4 +1,5 @@
-use tracing::{Span, error, field, instrument};
+use tokio::time::{Duration, sleep};
+use tracing::{Span, debug, error, field, info, instrument};
 use uuid::Uuid;
 
 use crate::{
@@ -47,12 +48,34 @@ impl WorkerRunner {
         Self { id: Uuid::new_v4() }
     }
 
+    pub async fn run(&self, repository: &JobRepository) -> Result<(), RunnerError> {
+        loop {
+            let Ok(outcome) = self.run_once(&repository).await else {
+                continue;
+            };
+
+            match outcome {
+                RunnerOutcome::Idle => {
+                    debug!(outcome = "idle", "worker run finished");
+                    sleep(Duration::from_secs(1)).await;
+                    continue;
+                }
+                RunnerOutcome::Completed { job_id } => {
+                    info!(outcome = "completed", %job_id, "worker run finished");
+                }
+                RunnerOutcome::Failed { job_id } => {
+                    info!(outcome = "failed", %job_id, "worker run finished");
+                }
+            }
+        }
+    }
+
     #[instrument(
         level = "info",
         skip(self, repository),
         fields(worker_id = %self.id, job_id = field::Empty)
     )]
-    pub async fn run_once(&self, repository: &JobRepository) -> Result<RunnerOutcome, RunnerError> {
+    async fn run_once(&self, repository: &JobRepository) -> Result<RunnerOutcome, RunnerError> {
         let job = repository.claim_next(self.id).await.map_err(|source| {
             error!(error = %source, "failed to claim next job");
             RunnerError::ClaimNext { source }

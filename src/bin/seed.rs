@@ -87,8 +87,8 @@ fn get_fake_email_payload() -> SendEmailPayload {
 
 fn get_fake_report_payload() -> GenerateReportPayload {
     let now = OffsetDateTime::now_utc();
-    let past_date_1 = now - Duration::days((10..20).fake());
-    let past_date_2 = now - Duration::days((20..30).fake());
+    let oldest_date = now - Duration::days((20..30).fake());
+    let newest_date = now - Duration::days((10..20).fake());
 
     GenerateReportPayload {
         report_type: if Faker.fake::<u8>() < 180 {
@@ -96,8 +96,8 @@ fn get_fake_report_payload() -> GenerateReportPayload {
         } else {
             "fail".to_string()
         },
-        date_range_start: faker::time::en::DateTimeBetween(past_date_1, now).fake(),
-        date_range_end: faker::time::en::DateTimeBetween(past_date_2, now).fake(),
+        date_range_start: faker::time::en::DateTimeBetween(oldest_date, now).fake(),
+        date_range_end: faker::time::en::DateTimeBetween(newest_date, now).fake(),
         format: match Faker.fake::<u8>() % 3 {
             0 => ReportFormat::Pdf,
             1 => ReportFormat::Csv,

@@ -1,11 +1,13 @@
+use iron_queue_rs::env_config;
 use iron_queue_rs::repository::jobs::JobRepository;
 use iron_queue_rs::worker::{RunnerOutcome, WorkerRunner};
 use sqlx::postgres::PgPoolOptions;
 use std::error::Error;
+use tokio::time::{Duration, sleep};
 use tracing::{error, info};
 use tracing_subscriber::EnvFilter;
 
-use iron_queue_rs::env_config;
+const POLL_ATTEMPTS: u8 = 3;
 
 fn main() -> Result<(), Box<dyn Error>> {
     dotenvy::dotenv().ok();
@@ -37,17 +39,32 @@ async fn async_main(config: env_config::EnvConfig) -> Result<(), Box<dyn Error>>
         })?;
 
     let repository = JobRepository::new(pool);
+    let worker = WorkerRunner::new();
+    let mut timeout_counter = POLL_ATTEMPTS;
 
-    let outcome = WorkerRunner::new().run_once(&repository).await?;
+    while timeout_counter > 0 {
+        let Ok(outcome) = worker.run_once(&repository).await else {
+            sleep(Duration::from_secs(1)).await;
+            timeout_counter -= 1;
+            continue;
+        };
 
-    match outcome {
-        RunnerOutcome::Idle => info!(outcome = "idle", "worker run finished"),
-        RunnerOutcome::Completed { job_id } => {
-            info!(outcome = "completed", %job_id, "worker run finished")
+        match outcome {
+            RunnerOutcome::Idle => {
+                info!(outcome = "idle", "worker run finished");
+                sleep(Duration::from_secs(1)).await;
+                timeout_counter -= 1;
+                continue;
+            }
+            RunnerOutcome::Completed { job_id } => {
+                info!(outcome = "completed", %job_id, "worker run finished");
+            }
+            RunnerOutcome::Failed { job_id } => {
+                info!(outcome = "failed", %job_id, "worker run finished");
+            }
         }
-        RunnerOutcome::Failed { job_id } => {
-            info!(outcome = "failed", %job_id, "worker run finished")
-        }
+
+        timeout_counter = POLL_ATTEMPTS;
     }
 
     Ok(())

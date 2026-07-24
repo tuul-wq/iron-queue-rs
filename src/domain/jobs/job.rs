@@ -77,7 +77,9 @@ pub struct SendEmailPayload {
 #[derive(Serialize, Deserialize)]
 pub struct GenerateReportPayload {
     pub report_type: String,
+    #[serde(with = "time::serde::rfc3339")]
     pub date_range_start: OffsetDateTime,
+    #[serde(with = "time::serde::rfc3339")]
     pub date_range_end: OffsetDateTime,
     pub format: ReportFormat,
 }

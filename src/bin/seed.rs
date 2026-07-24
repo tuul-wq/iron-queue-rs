@@ -6,7 +6,7 @@ use iron_queue_rs::repository::jobs::JobRepository;
 use sqlx::postgres::PgPoolOptions;
 use std::collections::HashMap;
 use std::error::Error;
-use time::OffsetDateTime;
+use time::{Duration, OffsetDateTime};
 use tracing::info;
 use tracing_subscriber::EnvFilter;
 
@@ -36,7 +36,7 @@ async fn async_main(config: env_config::EnvConfig) -> Result<(), Box<dyn Error>>
 
     let repository = JobRepository::new(pool);
 
-    for _ in 0..5 {
+    for _ in 0..10 {
         let new_job = NewQueuedJob::new(
             faker::lorem::en::Words(1..4)
                 .fake::<Vec<String>>()
@@ -86,14 +86,9 @@ fn get_fake_email_payload() -> SendEmailPayload {
 }
 
 fn get_fake_report_payload() -> GenerateReportPayload {
-    let first_date: OffsetDateTime = faker::time::en::DateTime().fake();
-    let second_date: OffsetDateTime = faker::time::en::DateTime().fake();
-
-    let (date_range_start, date_range_end) = if first_date <= second_date {
-        (first_date, second_date)
-    } else {
-        (second_date, first_date)
-    };
+    let now = OffsetDateTime::now_utc();
+    let past_date_1 = now - Duration::days((10..20).fake());
+    let past_date_2 = now - Duration::days((20..30).fake());
 
     GenerateReportPayload {
         report_type: if Faker.fake::<u8>() < 180 {
@@ -101,8 +96,8 @@ fn get_fake_report_payload() -> GenerateReportPayload {
         } else {
             "fail".to_string()
         },
-        date_range_start,
-        date_range_end,
+        date_range_start: faker::time::en::DateTimeBetween(past_date_1, now).fake(),
+        date_range_end: faker::time::en::DateTimeBetween(past_date_2, now).fake(),
         format: match Faker.fake::<u8>() % 3 {
             0 => ReportFormat::Pdf,
             1 => ReportFormat::Csv,

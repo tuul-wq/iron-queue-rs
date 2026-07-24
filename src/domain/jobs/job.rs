@@ -9,8 +9,8 @@ pub struct Job {
     pub payload: JobPayload,
     pub status: JobStatus,
     pub priority: JobPriority,
-    pub retry_count: i16,
-    pub max_retries: i16,
+    pub retry_count: u8,
+    pub max_retries: u8,
     pub locked_by: Option<Uuid>,
     pub locked_at: Option<OffsetDateTime>,
     pub run_at: Option<OffsetDateTime>,
@@ -23,11 +23,11 @@ pub struct NewQueuedJob {
     name: String,
     payload: JobPayload,
     priority: JobPriority,
-    max_retries: i16,
+    max_retries: u8,
 }
 
 impl NewQueuedJob {
-    pub fn new(name: String, payload: JobPayload, priority: JobPriority, max_retries: i16) -> Self {
+    pub fn new(name: String, payload: JobPayload, priority: JobPriority, max_retries: u8) -> Self {
         Self {
             name,
             payload,
@@ -36,7 +36,7 @@ impl NewQueuedJob {
         }
     }
 
-    pub fn into_parts(self) -> (String, JobPayload, JobPriority, i16) {
+    pub fn into_parts(self) -> (String, JobPayload, JobPriority, u8) {
         (self.name, self.payload, self.priority, self.max_retries)
     }
 }

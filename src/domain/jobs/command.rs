@@ -10,7 +10,7 @@ pub struct EnqueueJobCommand {
     payload: JobPayload,
     priority: JobPriority,
     #[validate(range(min = 0, max = 5))]
-    max_retries: i16,
+    max_retries: u8,
 }
 
 fn validate_name(name: &str) -> Result<(), ValidationError> {
@@ -26,7 +26,7 @@ impl EnqueueJobCommand {
         name: String,
         payload: JobPayload,
         priority: JobPriority,
-        max_retries: i16,
+        max_retries: u8,
     ) -> Result<Self, ValidationErrors> {
         let command = Self {
             name,

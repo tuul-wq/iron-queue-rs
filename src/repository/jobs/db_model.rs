@@ -11,8 +11,10 @@ pub struct JobRow {
     pub payload: serde_json::Value,
     pub status: JobStatus,
     pub priority: JobPriority,
-    pub retry_count: i16,
-    pub max_retries: i16,
+    #[sqlx(try_from = "i16")]
+    pub retry_count: u8,
+    #[sqlx(try_from = "i16")]
+    pub max_retries: u8,
     pub locked_by: Option<Uuid>,
     pub locked_at: Option<OffsetDateTime>,
     pub run_at: Option<OffsetDateTime>,

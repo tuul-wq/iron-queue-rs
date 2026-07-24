@@ -19,7 +19,7 @@ pub struct JobResponse {
     name: String,
     priority: JobPriority,
     status: JobStatus,
-    max_retries: i16,
+    max_retries: u8,
     #[serde(with = "time::serde::rfc3339")]
     created_at: OffsetDateTime,
 }

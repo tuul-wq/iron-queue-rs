@@ -30,7 +30,7 @@ impl JobRepository {
         .bind(JobStatus::Queued)
         .bind(serde_json::to_value(payload)?)
         .bind(priority)
-        .bind(max_retries)
+        .bind(i16::from(max_retries))
         .fetch_one(&self.pool)
         .await?;
 

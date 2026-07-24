@@ -8,7 +8,7 @@ pub struct CreateJobRequest {
     name: String,
     payload: JobPayload,
     priority: JobPriority,
-    max_retries: i16,
+    max_retries: u8,
 }
 
 impl TryFrom<CreateJobRequest> for EnqueueJobCommand {

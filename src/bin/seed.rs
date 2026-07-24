@@ -50,7 +50,7 @@ async fn async_main(config: env_config::EnvConfig) -> Result<(), Box<dyn Error>>
                 1 => JobPriority::Normal,
                 _ => JobPriority::High,
             },
-            i16::from(Faker.fake::<u8>() % 3 + 1),
+            u8::from(Faker.fake::<u8>() % 3 + 1),
         );
 
         let job = repository.insert_queued(new_job).await?;

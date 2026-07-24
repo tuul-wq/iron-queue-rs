@@ -29,7 +29,7 @@ pub async fn execute_job(job_payload: &JobPayload) -> Result<(), ExecutionError>
 async fn handle_send_email(email_payload: &SendEmailPayload) -> Result<(), ExecutionError> {
     sleep(Duration::from_secs(1)).await;
 
-    if email_payload.template_id == "unsupported" {
+    if email_payload.template_id == "fail" {
         warn!(
             job_kind = "send_email",
             reason = "email template is unsupported",
@@ -48,7 +48,7 @@ async fn handle_generate_report(
 ) -> Result<(), ExecutionError> {
     sleep(Duration::from_secs(1)).await;
 
-    if report_payload.report_type == "unsupported" {
+    if report_payload.report_type == "fail" {
         warn!(
             job_kind = "generate_report",
             reason = "report type is unsupported",

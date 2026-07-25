@@ -50,23 +50,24 @@ impl WorkerRunner {
 
     pub async fn run(&self, repository: &JobRepository) -> Result<(), RunnerError> {
         loop {
-            let Ok(outcome) = self.run_once(&repository).await else {
-                continue;
-            };
-
-            match outcome {
-                RunnerOutcome::Idle => {
+            match self.run_once(repository).await {
+                Ok(RunnerOutcome::Idle) => {
                     debug!(outcome = "idle", "worker run finished");
-                    sleep(Duration::from_secs(1)).await;
+                }
+                Ok(RunnerOutcome::Completed { job_id }) => {
+                    info!(outcome = "completed", %job_id, "worker run finished");
                     continue;
                 }
-                RunnerOutcome::Completed { job_id } => {
-                    info!(outcome = "completed", %job_id, "worker run finished");
-                }
-                RunnerOutcome::Failed { job_id } => {
+                Ok(RunnerOutcome::Failed { job_id }) => {
                     info!(outcome = "failed", %job_id, "worker run finished");
+                    continue;
+                }
+                Err(error) => {
+                    debug!(error = %error, "worker failed to run once");
                 }
             }
+
+            sleep(Duration::from_secs(1)).await;
         }
     }
 

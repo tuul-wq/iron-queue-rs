@@ -1,5 +1,6 @@
 use tokio::time::{Duration, sleep};
-use tracing::{Span, debug, error, field, info, instrument};
+use tokio_util::sync::CancellationToken;
+use tracing::{Span, field, instrument};
 use uuid::Uuid;
 
 use crate::{
@@ -48,27 +49,40 @@ impl WorkerRunner {
         Self { id: Uuid::new_v4() }
     }
 
-    pub async fn run(&self, repository: &JobRepository) -> Result<(), RunnerError> {
+    pub async fn run(
+        &self,
+        repository: &JobRepository,
+        shutdown_token: &CancellationToken,
+    ) -> Result<(), RunnerError> {
         loop {
+            if shutdown_token.is_cancelled() {
+                break;
+            }
+
             match self.run_once(repository).await {
                 Ok(RunnerOutcome::Idle) => {
-                    debug!(outcome = "idle", "worker run finished");
+                    tracing::debug!(outcome = "idle", "worker run finished");
                 }
                 Ok(RunnerOutcome::Completed { job_id }) => {
-                    info!(outcome = "completed", %job_id, "worker run finished");
+                    tracing::info!(outcome = "completed", %job_id, "worker run finished");
                     continue;
                 }
                 Ok(RunnerOutcome::Failed { job_id }) => {
-                    info!(outcome = "failed", %job_id, "worker run finished");
+                    tracing::warn!(outcome = "failed", %job_id, "worker run finished");
                     continue;
                 }
                 Err(error) => {
-                    debug!(error = %error, "worker failed to run once");
+                    tracing::debug!(error = %error, "worker failed to run once");
                 }
             }
 
-            sleep(Duration::from_secs(1)).await;
+            if wait_for_next_poll(shutdown_token).await {
+                break;
+            }
         }
+
+        tracing::info!(worker_id = %self.id, "worker stopped");
+        Ok(())
     }
 
     #[instrument(
@@ -78,7 +92,7 @@ impl WorkerRunner {
     )]
     async fn run_once(&self, repository: &JobRepository) -> Result<RunnerOutcome, RunnerError> {
         let job = repository.claim_next(self.id).await.map_err(|source| {
-            error!(error = %source, "failed to claim next job");
+            tracing::error!(error = %source, "failed to claim next job");
             RunnerError::ClaimNext { source }
         })?;
 
@@ -94,7 +108,7 @@ impl WorkerRunner {
                     .mark_completed(job.id, self.id)
                     .await
                     .map_err(|source| {
-                        error!(error = %source, "failed to mark job completed");
+                        tracing::error!(error = %source, "failed to mark job completed");
                         RunnerError::MarkCompleted {
                             job_id: job.id,
                             source,
@@ -107,7 +121,7 @@ impl WorkerRunner {
                     .mark_failed(job.id, self.id, &err.to_string())
                     .await
                     .map_err(|source| {
-                        error!(error = %source, "failed to mark job failed");
+                        tracing::error!(error = %source, "failed to mark job failed");
                         RunnerError::MarkFailed {
                             job_id: job.id,
                             source,
@@ -116,5 +130,12 @@ impl WorkerRunner {
                 Ok(RunnerOutcome::Failed { job_id: job.id })
             }
         }
+    }
+}
+
+async fn wait_for_next_poll(shutdown_token: &CancellationToken) -> bool {
+    tokio::select! {
+      _ = shutdown_token.cancelled() => true,
+      _ = sleep(Duration::from_secs(1)) => false,
     }
 }

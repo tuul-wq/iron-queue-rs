@@ -7,7 +7,6 @@ use sqlx::postgres::PgPoolOptions;
 use std::collections::HashMap;
 use std::error::Error;
 use time::{Duration, OffsetDateTime};
-use tracing::info;
 use tracing_subscriber::EnvFilter;
 
 use iron_queue_rs::env_config;
@@ -31,7 +30,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 }
 
 async fn async_main(config: env_config::EnvConfig) -> Result<(), Box<dyn Error>> {
-    info!("connecting to PostgreSQL");
+    tracing::info!("connecting to PostgreSQL");
     let pool = PgPoolOptions::new().connect(&config.database_url).await?;
 
     let repository = JobRepository::new(pool);
@@ -55,7 +54,7 @@ async fn async_main(config: env_config::EnvConfig) -> Result<(), Box<dyn Error>>
 
         let job = repository.insert_queued(new_job).await?;
 
-        info!(job_id = %job.id, "new job added");
+        tracing::info!(job_id = %job.id, "new job added");
     }
 
     Ok(())

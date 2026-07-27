@@ -1,9 +1,7 @@
 use std::time::Duration;
 
-use tokio::time::sleep;
-use tracing::warn;
-
 use crate::domain::jobs::{GenerateReportPayload, JobPayload, SendEmailPayload};
+use tokio::time::sleep;
 
 #[derive(Debug, thiserror::Error)]
 pub enum ExecutionError {
@@ -30,7 +28,7 @@ async fn handle_send_email(email_payload: &SendEmailPayload) -> Result<(), Execu
     sleep(Duration::from_secs(1)).await;
 
     if email_payload.template_id == "fail" {
-        warn!(
+        tracing::warn!(
             job_kind = "send_email",
             reason = "email template is unsupported",
             "job execution failed"
@@ -49,7 +47,7 @@ async fn handle_generate_report(
     sleep(Duration::from_secs(1)).await;
 
     if report_payload.report_type == "fail" {
-        warn!(
+        tracing::warn!(
             job_kind = "generate_report",
             reason = "report type is unsupported",
             "job execution failed"

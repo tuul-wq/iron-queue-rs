@@ -3,7 +3,7 @@ use axum::{
     extract::{Path, State},
     http::StatusCode,
 };
-use tracing::{info, instrument, warn};
+use tracing::instrument;
 use uuid::Uuid;
 
 use super::request::CreateJobRequest;
@@ -17,12 +17,12 @@ pub async fn enqueue_job(
     Json(body): Json<CreateJobRequest>,
 ) -> Result<(StatusCode, Json<JobResponse>), JobError> {
     let command = EnqueueJobCommand::try_from(body).map_err(|error| {
-        warn!(error = %error, "job enqueue request rejected");
+        tracing::warn!(error = %error, "job enqueue request rejected");
         error
     })?;
 
     let job = state.job_service.enqueue(command).await?;
-    info!(job_id = %job.id, "job enqueued");
+    tracing::info!(job_id = %job.id, "job enqueued");
 
     Ok((StatusCode::CREATED, Json(job.into())))
 }
@@ -55,7 +55,7 @@ pub async fn cancel_job(
     Path(job_id): Path<Uuid>,
 ) -> Result<StatusCode, JobError> {
     state.job_service.cancel_job(job_id).await?;
-    info!(job_id = %job_id, "job cancelled");
+    tracing::info!(job_id = %job_id, "job cancelled");
 
     Ok(StatusCode::OK)
 }

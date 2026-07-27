@@ -1,7 +1,9 @@
 use iron_queue_rs::repository::jobs::JobRepository;
 use iron_queue_rs::service::jobs::JobService;
+use iron_queue_rs::utils::shutdown_signal;
 use sqlx::postgres::PgPoolOptions;
 use std::error::Error;
+use tokio_util::sync::CancellationToken;
 use tracing::{error, info};
 use tracing_subscriber::EnvFilter;
 
@@ -27,6 +29,8 @@ fn main() -> Result<(), Box<dyn Error>> {
 }
 
 async fn async_main(config: env_config::EnvConfig) -> Result<(), Box<dyn Error>> {
+    let token = CancellationToken::new();
+
     info!(max_connections = %config.database_connection_pool, "connecting to PostgreSQL");
     let pool = PgPoolOptions::new()
         .max_connections(config.database_connection_pool)
@@ -50,6 +54,7 @@ async fn async_main(config: env_config::EnvConfig) -> Result<(), Box<dyn Error>>
 
     info!(address = %config.api_addr, "API server ready");
     axum::serve(listener, api::setup_routes(state))
+        .with_graceful_shutdown(shutdown_signal(token))
         .await
         .map_err(|error| {
             error!(error = %error, "API server stopped unexpectedly");

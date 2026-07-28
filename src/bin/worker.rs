@@ -41,7 +41,7 @@ async fn async_main(config: env_config::EnvConfig) -> Result<(), Box<dyn Error>>
     tokio::spawn(shutdown_signal(cancel_token.clone()));
 
     WorkerRunner::new()
-        .run(&JobRepository::new(pool), &cancel_token.clone())
+        .run(&JobRepository::new(pool), &cancel_token)
         .await?;
 
     Ok(())

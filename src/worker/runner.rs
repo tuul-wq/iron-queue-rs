@@ -54,6 +54,8 @@ impl WorkerRunner {
         repository: &JobRepository,
         shutdown_token: &CancellationToken,
     ) -> Result<(), RunnerError> {
+        tracing::info!(worker_id = %self.id, "worker started");
+
         loop {
             if shutdown_token.is_cancelled() {
                 break;
@@ -76,7 +78,7 @@ impl WorkerRunner {
                 }
             }
 
-            if wait_for_next_poll(shutdown_token).await {
+            if wait_for_next_poll(shutdown_token, 1).await {
                 break;
             }
         }
@@ -133,9 +135,9 @@ impl WorkerRunner {
     }
 }
 
-async fn wait_for_next_poll(shutdown_token: &CancellationToken) -> bool {
+async fn wait_for_next_poll(shutdown_token: &CancellationToken, delay: u64) -> bool {
     tokio::select! {
       _ = shutdown_token.cancelled() => true,
-      _ = sleep(Duration::from_secs(1)) => false,
+      _ = sleep(Duration::from_secs(delay as u64)) => false,
     }
 }

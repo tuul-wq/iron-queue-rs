@@ -2,7 +2,7 @@ use time::OffsetDateTime;
 use uuid::Uuid;
 
 use super::JobRepositoryError;
-use crate::domain::jobs::{Job, JobPayload, JobPriority, JobStatus};
+use crate::domain::{Job, JobPayload, JobPriority, JobStatus};
 
 #[derive(sqlx::FromRow)]
 pub struct JobRow {

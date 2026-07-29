@@ -1,7 +1,7 @@
 use serde::Deserialize;
 use validator::ValidationErrors;
 
-use crate::domain::jobs::{EnqueueJobCommand, JobPayload, JobPriority};
+use crate::domain::{EnqueueJobCommand, JobPayload, JobPriority};
 
 #[derive(Deserialize)]
 pub struct CreateJobRequest {

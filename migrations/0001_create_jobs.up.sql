@@ -25,8 +25,8 @@ CREATE TABLE jobs (
     retry_count SMALLINT NOT NULL DEFAULT 0,
     max_retries SMALLINT NOT NULL,
 
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
     CONSTRAINT jobs_name_not_empty CHECK (length(trim(name)) > 0),
     CONSTRAINT jobs_retry_count_non_negative CHECK (retry_count >= 0),

@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use crate::domain::jobs::{GenerateReportPayload, JobPayload, SendEmailPayload};
+use crate::domain::{GenerateReportPayload, JobPayload, SendEmailPayload};
 use tokio::time::sleep;
 
 #[derive(Debug, thiserror::Error)]

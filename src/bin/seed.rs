@@ -1,5 +1,5 @@
 use fake::{Fake, Faker, faker};
-use iron_queue_rs::domain::jobs::{
+use iron_queue_rs::domain::{
     GenerateReportPayload, JobPayload, JobPriority, NewQueuedJob, ReportFormat, SendEmailPayload,
 };
 use iron_queue_rs::repository::jobs::JobRepository;

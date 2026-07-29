@@ -9,7 +9,7 @@ use uuid::Uuid;
 use super::request::CreateJobRequest;
 use super::response::{JobError, JobResponse};
 
-use crate::{api::routes::AppState, domain::jobs::EnqueueJobCommand};
+use crate::{api::routes::AppState, domain::EnqueueJobCommand};
 
 #[instrument(skip(state, body))]
 pub async fn enqueue_job(

@@ -2,7 +2,7 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::{
-    domain::jobs::{Job, JobStatus, NewQueuedJob},
+    domain::{Job, JobStatus, NewQueuedJob},
     repository::jobs::{JobRepositoryError, JobRow},
 };
 
@@ -85,8 +85,8 @@ impl JobRepository {
             SET
               status = 'running',
               locked_by = $1,
-              locked_at = now(),
-              updated_at = now()
+              locked_at = NOW(),
+              updated_at = NOW()
             WHERE id = (SELECT id FROM new_job)
             RETURNING *
           "#,
@@ -111,7 +111,7 @@ impl JobRepository {
               locked_by = NULL,
               locked_at = NULL,
               last_error = NULL,
-              updated_at = now()
+              updated_at = NOW()
             WHERE id = $1 AND locked_by = $2 AND status = 'running'
           "#,
         )
@@ -141,7 +141,7 @@ impl JobRepository {
               locked_by = NULL,
               locked_at = NULL,
               last_error = $3,
-              updated_at = now()
+              updated_at = NOW()
             WHERE id = $1 AND locked_by = $2 AND status = 'running'
           "#,
         )

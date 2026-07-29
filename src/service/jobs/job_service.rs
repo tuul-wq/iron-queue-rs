@@ -4,7 +4,7 @@ use uuid::Uuid;
 use super::error::JobServiceError;
 
 use crate::{
-    domain::jobs::{EnqueueJobCommand, Job},
+    domain::{EnqueueJobCommand, Job},
     repository::jobs::JobRepository,
 };
 

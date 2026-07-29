@@ -9,7 +9,7 @@ use time::OffsetDateTime;
 use uuid::Uuid;
 
 use crate::{
-    domain::jobs::{Job, JobPriority, JobStatus},
+    domain::{Job, JobPriority, JobStatus},
     service::jobs::JobServiceError,
 };
 

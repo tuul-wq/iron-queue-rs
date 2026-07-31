@@ -1,4 +1,6 @@
+use iron_queue_rs::repository::dispatch_policy::DispatchPolicyRepository;
 use iron_queue_rs::repository::jobs::JobRepository;
+use iron_queue_rs::service::dispatch_policy::DispatchPolicyService;
 use iron_queue_rs::service::jobs::JobService;
 use iron_queue_rs::utils::shutdown_signal;
 use sqlx::postgres::PgPoolOptions;
@@ -47,8 +49,12 @@ async fn async_main(config: env_config::EnvConfig) -> Result<(), Box<dyn Error>>
             error
         })?;
 
+    let dispatch_policy_repository = DispatchPolicyRepository::new(pool.clone());
+    let job_repository = JobRepository::new(pool.clone());
+
     let state = api::AppState {
-        job_service: JobService::new(JobRepository::new(pool)),
+        dispatch_policy_service: DispatchPolicyService::new(dispatch_policy_repository),
+        job_service: JobService::new(job_repository),
     };
 
     tracing::info!(address = %config.api_addr, "API server ready");

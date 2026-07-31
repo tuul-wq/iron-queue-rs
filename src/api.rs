@@ -1,3 +1,4 @@
+mod dispatch_policy;
 mod health;
 mod jobs;
 mod routes;

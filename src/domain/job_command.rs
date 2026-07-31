@@ -15,7 +15,7 @@ pub struct EnqueueJobCommand {
 
 fn validate_name(name: &str) -> Result<(), ValidationError> {
     if name.trim().is_empty() {
-        return Err(ValidationError::new("blank"));
+        return Err(ValidationError::new("Name could not be blank"));
     }
 
     Ok(())

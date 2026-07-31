@@ -1,25 +1,27 @@
 use time::OffsetDateTime;
 
 use super::DispatchPolicyRepositoryError;
-use crate::domain::DispatchPolicy;
+use crate::domain::{DispatchPolicy, PolicyOption};
 
 #[derive(sqlx::FromRow)]
 pub struct DispatchPolicyRow {
+    #[sqlx(try_from = "i64")]
+    pub id: u64,
+    pub policy: serde_json::Value,
     pub created_at: OffsetDateTime,
-    pub updated_at: OffsetDateTime,
 }
 
 impl TryFrom<DispatchPolicyRow> for DispatchPolicy {
     type Error = DispatchPolicyRepositoryError;
 
     fn try_from(row: DispatchPolicyRow) -> Result<Self, Self::Error> {
-        // let payload: JobPayload = serde_json::from_value(row.payload)
-        //     .map_err(DispatchPolicyRepositoryError::InvalidPayload)?;
+        let policy: PolicyOption = serde_json::from_value(row.policy)
+            .map_err(DispatchPolicyRepositoryError::InvalidPolicy)?;
 
-        todo!();
-        // Ok(Self {
-        //     created_at: row.created_at,
-        //     updated_at: row.updated_at,
-        // })
+        Ok(Self {
+            id: row.id,
+            policy,
+            created_at: row.created_at,
+        })
     }
 }

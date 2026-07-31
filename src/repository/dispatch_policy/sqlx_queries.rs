@@ -1,13 +1,7 @@
 use sqlx::PgPool;
-use uuid::Uuid;
 
-use crate::{
-    domain::{DispatchPolicy, Job, JobStatus, NewQueuedJob, UpdateDispatchPolicyCommand},
-    repository::{
-        dispatch_policy::DispatchPolicyRepositoryError,
-        jobs::{JobRepositoryError, JobRow},
-    },
-};
+use super::{DispatchPolicyRepositoryError, DispatchPolicyRow};
+use crate::domain::{DispatchPolicy, UpdateDispatchPolicyCommand};
 
 #[derive(Clone)]
 pub struct DispatchPolicyRepository {
@@ -19,34 +13,53 @@ impl DispatchPolicyRepository {
         Self { pool }
     }
 
-    pub async fn update_policy(
+    pub async fn add_policy(
         &self,
         policy: UpdateDispatchPolicyCommand,
-    ) -> Result<DispatchPolicy, DispatchPolicyRepository> {
-        todo!();
-        // let (name, payload, priority, max_retries) = job.into_parts();
+    ) -> Result<DispatchPolicy, DispatchPolicyRepositoryError> {
+        let policy = policy.into_new_policy().into_parts();
 
-        // let created_job = sqlx::query_as::<_, JobRow>(
-        //     r#"
-        //       INSERT INTO jobs (name, status, payload, priority, max_retries)
-        //       VALUES ($1, $2, $3, $4, $5)
-        //       RETURNING *
-        //     "#,
-        // )
-        // .bind(name)
-        // .bind(JobStatus::Queued)
-        // .bind(serde_json::to_value(payload)?)
-        // .bind(priority)
-        // .bind(i16::from(max_retries))
-        // .fetch_one(&self.pool)
-        // .await?;
+        let created_policy = sqlx::query_as::<_, DispatchPolicyRow>(
+            r#"
+            INSERT INTO dispatch_policy (policy)
+            VALUES ($1)
+            RETURNING *
+          "#,
+        )
+        .bind(serde_json::to_value(policy)?)
+        .fetch_one(&self.pool)
+        .await?;
 
-        // Job::try_from(created_job)
+        DispatchPolicy::try_from(created_policy)
     }
 
-    pub async fn get_policy(
+    pub async fn get_latest_policy(
         &self,
     ) -> Result<Option<DispatchPolicy>, DispatchPolicyRepositoryError> {
-        todo!();
+        let policy = sqlx::query_as::<_, DispatchPolicyRow>(
+            r#"
+              SELECT * FROM dispatch_policy
+              ORDER BY id DESC
+              LIMIT 1
+          "#,
+        )
+        .fetch_optional(&self.pool)
+        .await?;
+
+        policy.map(DispatchPolicy::try_from).transpose()
+    }
+
+    pub async fn policy_history(
+        &self,
+    ) -> Result<Vec<DispatchPolicy>, DispatchPolicyRepositoryError> {
+        let policies = sqlx::query_as::<_, DispatchPolicyRow>(
+            r#"
+              SELECT * FROM dispatch_policy
+          "#,
+        )
+        .fetch_all(&self.pool)
+        .await?;
+
+        policies.into_iter().map(DispatchPolicy::try_from).collect()
     }
 }

@@ -1,5 +1,6 @@
 mod dispatch_policy;
 mod dispatch_policy_command;
+mod dispatch_strategy;
 mod job;
 mod job_command;
 

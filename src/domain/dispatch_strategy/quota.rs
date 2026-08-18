@@ -1,4 +1,5 @@
-use super::{ClaimRule, JobSelectionStrategy};
+use super::claim_rule::ClaimRule;
+use super::strategy::JobSelectionStrategy;
 
 pub struct QuotaStrategy {
     high: u8,
@@ -14,6 +15,10 @@ impl QuotaStrategy {
 
 impl JobSelectionStrategy for QuotaStrategy {
     fn next_claim_rule(&mut self) -> ClaimRule {
+        todo!()
+    }
+
+    fn job_claimed(&mut self) {
         todo!()
     }
 }

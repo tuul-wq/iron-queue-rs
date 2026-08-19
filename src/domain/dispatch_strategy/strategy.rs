@@ -3,7 +3,7 @@ use super::quota::QuotaStrategy;
 use crate::domain::{JobPriority, PolicyOption};
 
 pub enum ClaimRule {
-    QuotaPriority(JobPriority),
+    PreferredPriority(JobPriority),
     Aging { step_seconds: u8 },
 }
 

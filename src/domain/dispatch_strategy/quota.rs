@@ -25,8 +25,8 @@ impl QuotaStrategy {
 impl JobSelectionStrategy for QuotaStrategy {
     fn next_claim_rule(&mut self) -> ClaimRule {
         match self.schedule.get(self.cursor) {
-            Some(priority) => ClaimRule::QuotaPriority(priority.clone()),
-            None => ClaimRule::QuotaPriority(JobPriority::High),
+            Some(priority) => ClaimRule::PreferredPriority(priority.clone()),
+            None => ClaimRule::PreferredPriority(JobPriority::High),
         }
     }
 

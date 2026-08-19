@@ -76,7 +76,7 @@ impl JobRepository {
         rule: ClaimRule,
     ) -> Result<Option<Job>, JobRepositoryError> {
         match rule {
-            ClaimRule::QuotaPriority(priority) => {
+            ClaimRule::PreferredPriority(priority) => {
                 self.claim_next_by_priority(worker_id, priority).await
             }
             ClaimRule::Aging { step_seconds } => {

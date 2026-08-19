@@ -1,7 +1,11 @@
 use super::aging::AgingStrategy;
-use super::claim_rule::ClaimRule;
 use super::quota::QuotaStrategy;
-use crate::domain::PolicyOption;
+use crate::domain::{JobPriority, PolicyOption};
+
+pub enum ClaimRule {
+    QuotaPriority(JobPriority),
+    Aging { step_seconds: u8 },
+}
 
 pub trait JobSelectionStrategy: Send {
     fn next_claim_rule(&mut self) -> ClaimRule;

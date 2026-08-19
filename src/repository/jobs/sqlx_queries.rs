@@ -2,7 +2,7 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::{
-    domain::{Job, JobStatus, NewQueuedJob},
+    domain::{ClaimRule, Job, JobPriority, JobStatus, NewQueuedJob},
     repository::jobs::{JobRepositoryError, JobRow},
 };
 
@@ -43,7 +43,7 @@ impl JobRepository {
               SELECT *
               FROM jobs
               WHERE id = $1
-          "#,
+            "#,
         )
         .bind(job_id)
         .fetch_optional(&self.pool)
@@ -55,8 +55,8 @@ impl JobRepository {
     pub async fn list_jobs(&self) -> Result<Vec<Job>, JobRepositoryError> {
         let jobs = sqlx::query_as::<_, JobRow>(
             r#"
-            SELECT * FROM jobs
-        "#,
+              SELECT * FROM jobs
+            "#,
         )
         .fetch_all(&self.pool)
         .await?;
@@ -70,27 +70,97 @@ impl JobRepository {
         ))
     }
 
-    pub async fn claim_next(&self, worker_id: Uuid) -> Result<Option<Job>, JobRepositoryError> {
+    pub async fn claim_next(
+        &self,
+        worker_id: Uuid,
+        rule: ClaimRule,
+    ) -> Result<Option<Job>, JobRepositoryError> {
+        match rule {
+            ClaimRule::QuotaPriority(priority) => {
+                self.claim_next_by_priority(worker_id, priority).await
+            }
+            ClaimRule::Aging { step_seconds } => {
+                self.claim_next_by_aging(worker_id, step_seconds).await
+            }
+        }
+    }
+
+    async fn claim_next_by_priority(
+        &self,
+        worker_id: Uuid,
+        priority: JobPriority,
+    ) -> Result<Option<Job>, JobRepositoryError> {
+        let job = sqlx::query_as::<_, JobRow>(
+            r#"
+              WITH new_job AS (
+                SELECT id
+                FROM jobs
+                WHERE status='queued'
+                ORDER BY
+                    CASE WHEN priority = $1 THEN 0 ELSE 1 END,
+                    CASE priority
+                        WHEN 'high' THEN 0
+                        WHEN 'normal' THEN 1
+                        WHEN 'low' THEN 2
+                    END,
+                    created_at ASC
+                FOR UPDATE SKIP LOCKED
+                LIMIT 1
+              )
+              UPDATE jobs
+              SET
+                status = 'running',
+                locked_by = $2,
+                locked_at = NOW(),
+                updated_at = NOW()
+              WHERE id = (SELECT id FROM new_job)
+              RETURNING *
+            "#,
+        )
+        .bind(priority)
+        .bind(worker_id)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(job.map(Job::try_from).transpose()?)
+    }
+
+    async fn claim_next_by_aging(
+        &self,
+        worker_id: Uuid,
+        step_seconds: u8,
+    ) -> Result<Option<Job>, JobRepositoryError> {
         let job = sqlx::query_as::<_, JobRow>(
             r#"
             WITH new_job AS (
               SELECT id
               FROM jobs
               WHERE status='queued'
-              ORDER BY priority DESC, created_at ASC
+              ORDER BY
+                  (
+                      CASE priority
+                          WHEN 'low' THEN 0
+                          WHEN 'normal' THEN 1
+                          WHEN 'high' THEN 2
+                      END
+                      +
+                      FLOOR(EXTRACT(EPOCH FROM (now() - created_at)) / $1)
+                  ) DESC,
+                  created_at ASC
               FOR UPDATE SKIP LOCKED
               LIMIT 1
             )
             UPDATE jobs
             SET
               status = 'running',
-              locked_by = $1,
+              locked_by = $2,
               locked_at = NOW(),
               updated_at = NOW()
             WHERE id = (SELECT id FROM new_job)
             RETURNING *
           "#,
         )
+        .bind(i16::from(step_seconds))
         .bind(worker_id)
         .fetch_optional(&self.pool)
         .await?;

@@ -1,9 +1,12 @@
 use iron_queue_rs::env_config;
+use iron_queue_rs::repository::dispatch_policy::DispatchPolicyRepository;
 use iron_queue_rs::repository::jobs::JobRepository;
+use iron_queue_rs::service::dispatch_policy::DispatchPolicyService;
 use iron_queue_rs::utils::shutdown_signal;
 use iron_queue_rs::worker::WorkerRunner;
 use sqlx::postgres::PgPoolOptions;
 use std::error::Error;
+use tokio::sync::watch;
 use tokio_util::sync::CancellationToken;
 use tracing_subscriber::EnvFilter;
 
@@ -40,9 +43,18 @@ async fn async_main(config: env_config::EnvConfig) -> Result<(), Box<dyn Error>>
 
     tokio::spawn(shutdown_signal(cancel_token.clone()));
 
-    WorkerRunner::new()
-        .run(&JobRepository::new(pool), &cancel_token)
+    let job_repo = JobRepository::new(pool.clone());
+    let policy_repo = DispatchPolicyRepository::new(pool.clone());
+
+    let initial_policy = DispatchPolicyService::new(policy_repo)
+        .get_latest_policy()
         .await?;
+
+    let (sender, receiver) = watch::channel(initial_policy);
+
+    let mut worker = WorkerRunner::new(job_repo, receiver);
+
+    worker.run(&cancel_token).await?;
 
     Ok(())
 }

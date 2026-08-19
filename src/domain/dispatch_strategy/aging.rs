@@ -1,5 +1,4 @@
-use super::claim_rule::ClaimRule;
-use super::strategy::JobSelectionStrategy;
+use super::strategy::{ClaimRule, JobSelectionStrategy};
 
 pub struct AgingStrategy {
     aging_step_seconds: u8,
@@ -13,10 +12,12 @@ impl AgingStrategy {
 
 impl JobSelectionStrategy for AgingStrategy {
     fn next_claim_rule(&mut self) -> ClaimRule {
-        todo!()
+        ClaimRule::Aging {
+            step_seconds: self.aging_step_seconds,
+        }
     }
 
     fn job_claimed(&mut self) {
-        todo!()
+        // noting to be done here
     }
 }

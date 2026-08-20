@@ -1,10 +1,10 @@
-use iron_queue_rs::env_config;
 use iron_queue_rs::repository::dispatch_policy::DispatchPolicyRepository;
 use iron_queue_rs::repository::jobs::JobRepository;
 use iron_queue_rs::service::dispatch_policy::DispatchPolicyService;
 use iron_queue_rs::utils::shutdown_signal;
 use iron_queue_rs::worker::WorkerRunner;
-use sqlx::postgres::PgPoolOptions;
+use iron_queue_rs::{domain::DispatchPolicy, env_config};
+use sqlx::postgres::{PgListener, PgPoolOptions};
 use std::error::Error;
 use tokio::sync::watch;
 use tokio_util::sync::CancellationToken;
@@ -41,7 +41,16 @@ async fn async_main(config: env_config::EnvConfig) -> Result<(), Box<dyn Error>>
             error
         })?;
 
-    tokio::spawn(shutdown_signal(cancel_token.clone()));
+    tracing::info!(max_connections = %config.database_connection_pool, "connecting to PostgreSQL listener");
+    let mut listener = PgListener::connect_with(&pool).await.map_err(|error| {
+        tracing::error!(error = %error, "failed to connect to PostgreSQL listener");
+        error
+    })?;
+
+    listener.listen("dispatch_policy_changed").await?;
+
+    let shutdown_token = cancel_token.clone();
+    tokio::spawn(shutdown_signal(shutdown_token));
 
     let job_repo = JobRepository::new(pool.clone());
     let policy_repo = DispatchPolicyRepository::new(pool.clone());
@@ -52,9 +61,22 @@ async fn async_main(config: env_config::EnvConfig) -> Result<(), Box<dyn Error>>
 
     let (sender, receiver) = watch::channel(initial_policy);
 
+    let shutdown_token = cancel_token.clone();
+    tokio::spawn(async move {
+        run_policy_listener(listener, sender, shutdown_token).await;
+    });
+
     let mut worker = WorkerRunner::new(job_repo, receiver);
 
     worker.run(&cancel_token).await?;
 
     Ok(())
+}
+
+async fn run_policy_listener(
+    mut pg_listener: PgListener,
+    sender: watch::Sender<DispatchPolicy>,
+    cancel_token: CancellationToken,
+) {
+    todo!();
 }

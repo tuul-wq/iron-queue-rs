@@ -54,16 +54,15 @@ async fn async_main(config: env_config::EnvConfig) -> Result<(), Box<dyn Error>>
 
     let job_repo = JobRepository::new(pool.clone());
     let policy_repo = DispatchPolicyRepository::new(pool.clone());
+    let policy_service = DispatchPolicyService::new(policy_repo);
 
-    let initial_policy = DispatchPolicyService::new(policy_repo)
-        .get_latest_policy()
-        .await?;
+    let initial_policy = policy_service.get_latest_policy().await?;
 
     let (sender, receiver) = watch::channel(initial_policy);
 
     let shutdown_token = cancel_token.clone();
     tokio::spawn(async move {
-        run_policy_listener(listener, sender, shutdown_token).await;
+        run_policy_listener(listener, policy_service, sender, shutdown_token).await;
     });
 
     let mut worker = WorkerRunner::new(job_repo, receiver);
@@ -75,8 +74,38 @@ async fn async_main(config: env_config::EnvConfig) -> Result<(), Box<dyn Error>>
 
 async fn run_policy_listener(
     mut pg_listener: PgListener,
+    policy_service: DispatchPolicyService,
     sender: watch::Sender<DispatchPolicy>,
     cancel_token: CancellationToken,
 ) {
-    todo!();
+    loop {
+        tokio::select! {
+          _ = cancel_token.cancelled() => {
+            tracing::warn!("policy listener cancelled");
+            break;
+          }
+
+          result = pg_listener.recv() => {
+            let notification = match result {
+              Ok(notification) => notification,
+              Err(error) => {
+                tracing::error!(%error, "failed to receive policy notification");
+                continue;
+              }
+            };
+
+            tracing::info!(revision = notification.payload(), "policy notification received");
+
+            match policy_service.get_latest_policy().await {
+                Ok(policy) => {
+                    tracing::info!(policy_revision = policy.id, "new dispatch policy loaded");
+                    sender.send_replace(policy);
+                }
+                Err(error) => {
+                    tracing::error!( %error, "failed to reload dispatch policy");
+                }
+            };
+          }
+        }
+    }
 }

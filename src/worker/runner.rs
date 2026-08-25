@@ -83,6 +83,8 @@ impl WorkerRunner {
                 break;
             }
 
+            self.check_new_strategy();
+
             match self.run_once().await {
                 Ok(RunnerOutcome::Idle) => {
                     tracing::debug!(outcome = "idle", "worker run finished");
@@ -168,6 +170,23 @@ impl WorkerRunner {
                 })
             }
         }
+    }
+
+    fn check_new_strategy(&mut self) {
+        let policy_ref = self.policy_rx.borrow();
+
+        if policy_ref.id == self.policy_revision {
+            return;
+        }
+
+        tracing::info!(
+            old_revision = %self.policy_revision,
+            new_revision = %policy_ref.id,
+            "policy revision changed, updating strategy"
+        );
+
+        self.policy_revision = policy_ref.id;
+        self.strategy = strategy_from_policy(&policy_ref.policy);
     }
 }
 

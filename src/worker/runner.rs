@@ -175,7 +175,7 @@ impl WorkerRunner {
     fn check_new_strategy(&mut self) {
         let policy_ref = self.policy_rx.borrow();
 
-        if policy_ref.id == self.policy_revision {
+        if policy_ref.id <= self.policy_revision {
             return;
         }
 

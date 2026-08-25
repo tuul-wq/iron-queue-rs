@@ -42,10 +42,12 @@ async fn async_main(config: env_config::EnvConfig) -> Result<(), Box<dyn Error>>
         })?;
 
     tracing::info!(max_connections = %config.database_connection_pool, "connecting to PostgreSQL listener");
-    let mut listener = PgListener::connect_with(&pool).await.map_err(|error| {
-        tracing::error!(error = %error, "failed to connect to PostgreSQL listener");
-        error
-    })?;
+    let mut listener = PgListener::connect(&config.database_url)
+        .await
+        .map_err(|error| {
+            tracing::error!(error = %error, "failed to connect to PostgreSQL listener");
+            error
+        })?;
 
     listener.listen("dispatch_policy_changed").await?;
 

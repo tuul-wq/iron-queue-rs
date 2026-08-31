@@ -112,6 +112,7 @@ impl JobRepository {
               UPDATE jobs
               SET
                 status = 'running',
+                run_at = NULL,
                 locked_by = $2,
                 locked_at = NOW(),
                 updated_at = NOW()
@@ -155,6 +156,7 @@ impl JobRepository {
             UPDATE jobs
             SET
               status = 'running',
+              run-at = NULL,
               locked_by = $2,
               locked_at = NOW(),
               updated_at = NOW()
@@ -207,6 +209,9 @@ impl JobRepository {
         retry_count: u8,
         error: &str,
     ) -> Result<OffsetDateTime, JobRepositoryError> {
+        let delay =
+            i64::try_from(delay.as_micros()).map_err(JobRepositoryError::InvalidScheduleDelay)?;
+
         sqlx::query_scalar::<_, OffsetDateTime>(
             r#"
             UPDATE jobs
@@ -215,7 +220,7 @@ impl JobRepository {
               locked_by = NULL,
               locked_at = NULL,
               last_error = $3,
-              run_at = NOW() + $4,
+              run_at = NOW() + ($4 * INTERVAL '1 microsecond'),
               retry_count = $5,
               updated_at = NOW()
             WHERE id = $1 AND locked_by = $2 AND status = 'running'

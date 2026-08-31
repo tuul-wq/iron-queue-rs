@@ -69,8 +69,8 @@ pub enum RunnerError {
         job_id: Uuid,
         source: JobRepositoryError,
     },
-    #[error("mark_scheduled failed: {source}")]
-    MarkScheduled {
+    #[error("mark_scheduled_retry failed: {source}")]
+    MarkScheduledRetry {
         job_id: Uuid,
         source: JobRepositoryError,
     },
@@ -245,7 +245,7 @@ impl WorkerRunner {
                     .await
                     .map_err(|source| {
                         tracing::error!(error = %source, "failed to schedule the job");
-                        RunnerError::MarkScheduled {
+                        RunnerError::MarkScheduledRetry {
                             job_id: job.id,
                             source,
                         }

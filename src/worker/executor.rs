@@ -11,7 +11,7 @@ pub enum ExecutionError {
     #[error("Job execution will be retried later")]
     Retryable,
     #[error("Job execution permanently failed — {0}")]
-    Permament(String),
+    Permanent(String),
 }
 
 pub async fn execute_job(job_payload: &JobPayload) -> Result<(), ExecutionError> {
@@ -41,7 +41,7 @@ async fn handle_send_email(email_payload: &SendEmailPayload) -> Result<(), Execu
                 reason = "email template is unsupported",
                 "job execution failed"
             );
-            Err(ExecutionError::Permament(
+            Err(ExecutionError::Permanent(
                 "Email template is unsupported".to_string(),
             ))
         }
@@ -69,7 +69,7 @@ async fn handle_generate_report(
                 reason = "report type is unsupported",
                 "job execution failed"
             );
-            Err(ExecutionError::Permament(
+            Err(ExecutionError::Permanent(
                 "Report type is unsupported".to_string(),
             ))
         }

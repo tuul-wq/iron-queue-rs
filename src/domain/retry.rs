@@ -41,8 +41,10 @@ impl RetryPolicy {
     }
 
     fn calculate_delay(&self, retry_count: u8) -> Duration {
-        let new_delay = self.base_delay * 2u32.pow(retry_count as u32);
+        let multiplier = 1_u32.checked_shl(retry_count.into()).unwrap_or(u32::MAX);
 
-        cmp::min(new_delay, self.max_delay)
+        self.base_delay
+            .saturating_mul(multiplier)
+            .min(self.max_delay)
     }
 }

@@ -156,7 +156,7 @@ impl JobRepository {
             UPDATE jobs
             SET
               status = 'running',
-              run-at = NULL,
+              run_at = NULL,
               locked_by = $2,
               locked_at = NOW(),
               updated_at = NOW()

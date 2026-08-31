@@ -12,8 +12,8 @@ impl fmt::Display for ShortUuid {
 
         write!(
             f,
-            "{:02x}{:02x}..{:02x}{:02x}",
-            bytes[0], bytes[1], bytes[14], bytes[15],
+            "{:02x}{:02x}{:02x}..{:02x}{:02x}{:02x}",
+            bytes[0], bytes[1], bytes[2], bytes[13], bytes[14], bytes[15],
         )
     }
 }
@@ -54,6 +54,6 @@ mod tests {
     fn short_uuid_displays_the_first_and_last_four_hex_digits() {
         let id = uuid::Uuid::parse_str("12345678-1234-5678-90ab-cdef12345678").unwrap();
 
-        assert_eq!(ShortUuid(id).to_string(), "1234..5678");
+        assert_eq!(ShortUuid(id).to_string(), "123456..345678");
     }
 }

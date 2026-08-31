@@ -1,3 +1,4 @@
+use iron_queue_rs::domain::RetryPolicy;
 use iron_queue_rs::repository::dispatch_policy::DispatchPolicyRepository;
 use iron_queue_rs::repository::jobs::JobRepository;
 use iron_queue_rs::service::dispatch_policy::DispatchPolicyService;
@@ -6,6 +7,7 @@ use iron_queue_rs::worker::WorkerRunner;
 use iron_queue_rs::{domain::DispatchPolicy, env_config};
 use sqlx::postgres::{PgListener, PgPoolOptions};
 use std::error::Error;
+use std::time::Duration;
 use tokio::sync::watch;
 use tokio_util::sync::CancellationToken;
 use tracing_subscriber::EnvFilter;
@@ -67,7 +69,9 @@ async fn async_main(config: env_config::EnvConfig) -> Result<(), Box<dyn Error>>
         run_policy_listener(listener, policy_service, sender, shutdown_token).await;
     });
 
-    let mut worker = WorkerRunner::new(job_repo, receiver);
+    let retry_policy = RetryPolicy::new(Duration::from_secs(2), Duration::from_secs(60));
+
+    let mut worker = WorkerRunner::new(job_repo, receiver, retry_policy);
 
     worker.run(&cancel_token).await?;
 

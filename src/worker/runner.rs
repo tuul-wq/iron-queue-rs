@@ -1,3 +1,4 @@
+use time::OffsetDateTime;
 use tokio::{
     sync::watch,
     time::{Duration, sleep},
@@ -7,16 +8,31 @@ use tracing::{Span, field, instrument};
 use uuid::Uuid;
 
 use crate::{
-    domain::{DispatchPolicy, JobPriority, JobSelectionStrategy, strategy_from_policy},
+    domain::{
+        DispatchPolicy, FailureDisposition, Job, JobPriority, JobSelectionStrategy, RetryPolicy,
+        strategy_from_policy,
+    },
     repository::jobs::{JobRepository, JobRepositoryError},
+    worker::ExecutionError,
 };
 
 use super::executor::execute_job;
 
 pub enum RunnerOutcome {
     Idle,
-    Completed { job_id: Uuid, priority: JobPriority },
-    Failed { job_id: Uuid, priority: JobPriority },
+    Completed {
+        job_id: Uuid,
+        priority: JobPriority,
+    },
+    RetryScheduled {
+        job_id: Uuid,
+        retry_count: u8,
+        run_at: OffsetDateTime,
+    },
+    Failed {
+        job_id: Uuid,
+        priority: JobPriority,
+    },
 }
 
 impl std::fmt::Display for RunnerOutcome {
@@ -25,6 +41,17 @@ impl std::fmt::Display for RunnerOutcome {
             RunnerOutcome::Idle => write!(f, "idle"),
             RunnerOutcome::Completed { job_id, priority } => {
                 write!(f, "completed (job_id: {}, priority: {})", job_id, priority)
+            }
+            RunnerOutcome::RetryScheduled {
+                job_id,
+                retry_count,
+                run_at,
+            } => {
+                write!(
+                    f,
+                    "retry scheduled (job_id: {}, retry_count: {}, run_at: {})",
+                    job_id, retry_count, run_at
+                )
             }
             RunnerOutcome::Failed { job_id, priority } => {
                 write!(f, "failed (job_id: {}, priority: {})", job_id, priority)
@@ -42,6 +69,11 @@ pub enum RunnerError {
         job_id: Uuid,
         source: JobRepositoryError,
     },
+    #[error("mark_scheduled failed: {source}")]
+    MarkScheduled {
+        job_id: Uuid,
+        source: JobRepositoryError,
+    },
     #[error("mark_failed failed: {source}")]
     MarkFailed {
         job_id: Uuid,
@@ -53,12 +85,17 @@ pub struct WorkerRunner {
     id: Uuid,
     job_repo: JobRepository,
     strategy: Box<dyn JobSelectionStrategy>,
+    retry_policy: RetryPolicy,
     policy_revision: u64,
     policy_rx: watch::Receiver<DispatchPolicy>,
 }
 
 impl WorkerRunner {
-    pub fn new(job_repo: JobRepository, policy_rx: watch::Receiver<DispatchPolicy>) -> Self {
+    pub fn new(
+        job_repo: JobRepository,
+        policy_rx: watch::Receiver<DispatchPolicy>,
+        retry_policy: RetryPolicy,
+    ) -> Self {
         let (policy_revision, strategy) = {
             let policy_ref = policy_rx.borrow();
             let strategy = strategy_from_policy(&policy_ref.policy);
@@ -70,6 +107,7 @@ impl WorkerRunner {
             id: Uuid::new_v4(),
             job_repo,
             strategy,
+            retry_policy,
             policy_rx,
             policy_revision,
         }
@@ -87,18 +125,26 @@ impl WorkerRunner {
 
             match self.run_once().await {
                 Ok(RunnerOutcome::Idle) => {
-                    tracing::debug!(outcome = "idle", "worker run finished");
+                    tracing::debug!(worker_id = %self.id, "no job available");
                 }
                 Ok(RunnerOutcome::Completed { job_id, priority }) => {
-                    tracing::info!(outcome = "completed", %job_id, priority = %priority, "worker run finished");
+                    tracing::info!(worker_id = %self.id, %job_id, priority = %priority, "job completed");
+                    continue;
+                }
+                Ok(RunnerOutcome::RetryScheduled {
+                    job_id,
+                    retry_count,
+                    run_at,
+                }) => {
+                    tracing::info!(worker_id = %self.id, %job_id, retry_count, run_at = %run_at, "job retry scheduled");
                     continue;
                 }
                 Ok(RunnerOutcome::Failed { job_id, priority }) => {
-                    tracing::warn!(outcome = "failed", %job_id, priority = %priority, "worker run finished");
+                    tracing::warn!(worker_id = %self.id, %job_id, priority = %priority, "job failed permanently");
                     continue;
                 }
                 Err(error) => {
-                    tracing::debug!(error = %error, "worker failed to run once");
+                    tracing::warn!(worker_id = %self.id, error = %error, "worker run cycle failed");
                 }
             }
 
@@ -117,58 +163,16 @@ impl WorkerRunner {
         fields(worker_id = %self.id, job_id = field::Empty)
     )]
     async fn run_once(&mut self) -> Result<RunnerOutcome, RunnerError> {
-        let claim_rule = self.strategy.next_claim_rule();
-
-        let job = self
-            .job_repo
-            .claim_next(self.id, claim_rule)
-            .await
-            .map_err(|source| {
-                tracing::error!(error = %source, "failed to claim next job");
-                RunnerError::ClaimNext { source }
-            })?;
-
-        let Some(job) = job else {
+        let Some(job) = self.claim_next().await? else {
             return Ok(RunnerOutcome::Idle);
         };
 
         self.strategy.job_claimed();
-
         Span::current().record("job_id", &field::display(job.id));
 
         match execute_job(&job.payload).await {
-            Ok(_) => {
-                self.job_repo
-                    .mark_completed(job.id, self.id)
-                    .await
-                    .map_err(|source| {
-                        tracing::error!(error = %source, "failed to mark job completed");
-                        RunnerError::MarkCompleted {
-                            job_id: job.id,
-                            source,
-                        }
-                    })?;
-                Ok(RunnerOutcome::Completed {
-                    job_id: job.id,
-                    priority: job.priority,
-                })
-            }
-            Err(err) => {
-                self.job_repo
-                    .mark_failed(job.id, self.id, &err.to_string())
-                    .await
-                    .map_err(|source| {
-                        tracing::error!(error = %source, "failed to mark job failed");
-                        RunnerError::MarkFailed {
-                            job_id: job.id,
-                            source,
-                        }
-                    })?;
-                Ok(RunnerOutcome::Failed {
-                    job_id: job.id,
-                    priority: job.priority,
-                })
-            }
+            Ok(_) => self.complete(job).await,
+            Err(error) => self.handle_execution_failure(job, error).await,
         }
     }
 
@@ -187,6 +191,90 @@ impl WorkerRunner {
 
         self.policy_revision = policy_ref.id;
         self.strategy = strategy_from_policy(&policy_ref.policy);
+    }
+
+    async fn claim_next(&mut self) -> Result<Option<Job>, RunnerError> {
+        let claim_rule = self.strategy.next_claim_rule();
+
+        self.job_repo
+            .claim_next(self.id, claim_rule)
+            .await
+            .map_err(|source| {
+                tracing::error!(error = %source, "failed to claim next job");
+                RunnerError::ClaimNext { source }
+            })
+    }
+
+    async fn complete(&self, job: Job) -> Result<RunnerOutcome, RunnerError> {
+        self.job_repo
+            .mark_completed(job.id, self.id)
+            .await
+            .map_err(|source| {
+                tracing::error!(error = %source, "failed to mark job completed");
+                RunnerError::MarkCompleted {
+                    job_id: job.id,
+                    source,
+                }
+            })?;
+
+        Ok(RunnerOutcome::Completed {
+            job_id: job.id,
+            priority: job.priority,
+        })
+    }
+
+    async fn handle_execution_failure(
+        &self,
+        job: Job,
+        error: ExecutionError,
+    ) -> Result<RunnerOutcome, RunnerError> {
+        let disposition = self.retry_policy.classify(
+            job.retry_count,
+            job.max_retries,
+            matches!(&error, ExecutionError::Retryable),
+        );
+
+        match disposition {
+            FailureDisposition::Retry {
+                next_retry_count,
+                delay,
+            } => {
+                let run_at = self
+                    .job_repo
+                    .schedule_retry(job.id, self.id, delay, next_retry_count, &error.to_string())
+                    .await
+                    .map_err(|source| {
+                        tracing::error!(error = %source, "failed to schedule the job");
+                        RunnerError::MarkScheduled {
+                            job_id: job.id,
+                            source,
+                        }
+                    })?;
+
+                Ok(RunnerOutcome::RetryScheduled {
+                    job_id: job.id,
+                    retry_count: next_retry_count,
+                    run_at,
+                })
+            }
+            FailureDisposition::Terminal => {
+                self.job_repo
+                    .mark_failed(job.id, self.id, &error.to_string())
+                    .await
+                    .map_err(|source| {
+                        tracing::error!(error = %source, "failed to mark job failed");
+                        RunnerError::MarkFailed {
+                            job_id: job.id,
+                            source,
+                        }
+                    })?;
+
+                Ok(RunnerOutcome::Failed {
+                    job_id: job.id,
+                    priority: job.priority,
+                })
+            }
+        }
     }
 }
 

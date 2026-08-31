@@ -3,6 +3,7 @@ mod dispatch_policy_command;
 mod dispatch_strategy;
 mod job;
 mod job_command;
+mod retry;
 
 pub use dispatch_policy::{DispatchPolicy, NewDispatchPolicy, PolicyOption};
 pub use dispatch_policy_command::UpdateDispatchPolicyCommand;
@@ -12,3 +13,4 @@ pub use job::{
     SendEmailPayload,
 };
 pub use job_command::EnqueueJobCommand;
+pub use retry::{FailureDisposition, RetryPolicy};

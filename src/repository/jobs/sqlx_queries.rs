@@ -1,4 +1,6 @@
 use sqlx::PgPool;
+use std::time::Duration;
+use time::OffsetDateTime;
 use uuid::Uuid;
 
 use crate::{
@@ -95,7 +97,7 @@ impl JobRepository {
               WITH new_job AS (
                 SELECT id
                 FROM jobs
-                WHERE status='queued'
+                WHERE status='queued' AND (run_at IS NULL OR run_at <= NOW())
                 ORDER BY
                     CASE WHEN priority = $1 THEN 0 ELSE 1 END,
                     CASE priority
@@ -135,7 +137,7 @@ impl JobRepository {
             WITH new_job AS (
               SELECT id
               FROM jobs
-              WHERE status='queued'
+              WHERE status='queued' AND (run_at IS NULL OR run_at <= NOW())
               ORDER BY
                   (
                       CASE priority
@@ -144,7 +146,7 @@ impl JobRepository {
                           WHEN 'high' THEN 2
                       END
                       +
-                      FLOOR(EXTRACT(EPOCH FROM (now() - created_at)) / $1)
+                      FLOOR(EXTRACT(EPOCH FROM (NOW() - COALESCE(run_at, created_at))) / $1)
                   ) DESC,
                   created_at ASC
               FOR UPDATE SKIP LOCKED
@@ -195,6 +197,39 @@ impl JobRepository {
         } else {
             Err(JobRepositoryError::JobTransitionRejected(job_id))
         }
+    }
+
+    pub async fn schedule_retry(
+        &self,
+        job_id: Uuid,
+        worker_id: Uuid,
+        delay: Duration,
+        retry_count: u8,
+        error: &str,
+    ) -> Result<OffsetDateTime, JobRepositoryError> {
+        sqlx::query_scalar::<_, OffsetDateTime>(
+            r#"
+            UPDATE jobs
+            SET
+              status = 'queued',
+              locked_by = NULL,
+              locked_at = NULL,
+              last_error = $3,
+              run_at = NOW() + $4,
+              retry_count = $5,
+              updated_at = NOW()
+            WHERE id = $1 AND locked_by = $2 AND status = 'running'
+            RETURNING run_at
+          "#,
+        )
+        .bind(job_id)
+        .bind(worker_id)
+        .bind(error)
+        .bind(delay)
+        .bind(i16::from(retry_count))
+        .fetch_optional(&self.pool)
+        .await?
+        .ok_or(JobRepositoryError::JobTransitionRejected(job_id))
     }
 
     pub async fn mark_failed(

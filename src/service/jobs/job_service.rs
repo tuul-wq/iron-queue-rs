@@ -6,6 +6,7 @@ use super::error::JobServiceError;
 use crate::{
     domain::{EnqueueJobCommand, Job},
     repository::jobs::JobRepository,
+    utils::ShortUuid,
 };
 
 #[derive(Clone)]
@@ -29,15 +30,15 @@ impl JobService {
             })
     }
 
-    #[instrument(level = "debug", skip(self))]
+    #[instrument(level = "debug", skip(self, job_id), fields(job_id = %ShortUuid(job_id)))]
     pub async fn get_job(&self, job_id: Uuid) -> Result<Job, JobServiceError> {
         let job = self.repository.get_job(job_id).await.map_err(|error| {
-            tracing::error!(job_id = %job_id, error = %error, "failed to load job");
+            tracing::error!(job_id = %ShortUuid(job_id), error = %error, "failed to load job");
             JobServiceError::from(error)
         })?;
 
         job.ok_or_else(|| {
-            tracing::debug!(job_id = %job_id, "job not found");
+            tracing::debug!(job_id = %ShortUuid(job_id), "job not found");
             JobServiceError::NotFound
         })
     }
@@ -53,10 +54,10 @@ impl JobService {
         Ok(jobs)
     }
 
-    #[instrument(level = "debug", skip(self))]
+    #[instrument(level = "debug", skip(self, job_id), fields(job_id = %ShortUuid(job_id)))]
     pub async fn cancel_job(&self, job_id: Uuid) -> Result<(), JobServiceError> {
         self.repository.cancel_job(job_id).await.map_err(|error| {
-            tracing::error!(job_id = %job_id, error = %error, "failed to cancel job");
+            tracing::error!(job_id = %ShortUuid(job_id), error = %error, "failed to cancel job");
             JobServiceError::from(error)
         })?;
 

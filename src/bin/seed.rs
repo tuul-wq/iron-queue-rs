@@ -10,6 +10,7 @@ use time::{Duration, OffsetDateTime};
 use tracing_subscriber::EnvFilter;
 
 use iron_queue_rs::env_config;
+use iron_queue_rs::utils::ShortUuid;
 
 fn main() -> Result<(), Box<dyn Error>> {
     dotenvy::dotenv().ok();
@@ -54,7 +55,7 @@ async fn async_main(config: env_config::EnvConfig) -> Result<(), Box<dyn Error>>
 
         let job = repository.insert_queued(new_job).await?;
 
-        tracing::info!(job_id = %job.id, "new job added");
+        tracing::info!(job_id = %ShortUuid(job.id), "new job added");
     }
 
     Ok(())
@@ -64,10 +65,10 @@ fn get_fake_email_payload() -> SendEmailPayload {
     SendEmailPayload {
         to: faker::internet::en::SafeEmail().fake(),
         subject: faker::finance::en::Bic().fake(),
-        template_id: match Faker.fake::<u8>() % 3 {
-            0 => faker::currency::en::CurrencyName().fake(),
-            1 => "temp_fail".to_string(),
-            _ => "perm_fail".to_string(),
+        template_id: match Faker.fake::<u8>() % 4 {
+            0 => "temp_fail".to_string(),
+            1 => "perm_fail".to_string(),
+            _ => faker::currency::en::CurrencyName().fake(),
         },
         variables: HashMap::from([
             ("name".to_string(), faker::name::en::Name().fake()),
@@ -90,10 +91,10 @@ fn get_fake_report_payload() -> GenerateReportPayload {
     let newest_date = now - Duration::days((10..20).fake());
 
     GenerateReportPayload {
-        report_type: match Faker.fake::<u8>() % 3 {
-            0 => faker::currency::en::CurrencyName().fake(),
-            1 => "temp_fail".to_string(),
-            _ => "perm_fail".to_string(),
+        report_type: match Faker.fake::<u8>() % 4 {
+            0 => "temp_fail".to_string(),
+            1 => "perm_fail".to_string(),
+            _ => faker::currency::en::CurrencyName().fake(),
         },
         date_range_start: faker::time::en::DateTimeBetween(oldest_date, now).fake(),
         date_range_end: faker::time::en::DateTimeBetween(newest_date, now).fake(),

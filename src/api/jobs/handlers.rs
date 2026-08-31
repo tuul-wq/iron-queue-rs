@@ -9,7 +9,7 @@ use uuid::Uuid;
 use super::request::CreateJobRequest;
 use super::response::{JobError, JobResponse};
 
-use crate::{api::routes::AppState, domain::EnqueueJobCommand};
+use crate::{api::routes::AppState, domain::EnqueueJobCommand, utils::ShortUuid};
 
 #[instrument(skip(state, body))]
 pub async fn enqueue_job(
@@ -22,12 +22,12 @@ pub async fn enqueue_job(
     })?;
 
     let job = state.job_service.enqueue(command).await?;
-    tracing::info!(job_id = %job.id, "job enqueued");
+    tracing::info!(job_id = %ShortUuid(job.id), "job enqueued");
 
     Ok((StatusCode::CREATED, Json(job.into())))
 }
 
-#[instrument(skip(state))]
+#[instrument(skip(state, job_id), fields(job_id = %ShortUuid(job_id)))]
 pub async fn get_job(
     State(state): State<AppState>,
     Path(job_id): Path<Uuid>,
@@ -49,13 +49,13 @@ pub async fn list_jobs(
     ))
 }
 
-#[instrument(skip(state))]
+#[instrument(skip(state, job_id), fields(job_id = %ShortUuid(job_id)))]
 pub async fn cancel_job(
     State(state): State<AppState>,
     Path(job_id): Path<Uuid>,
 ) -> Result<StatusCode, JobError> {
     state.job_service.cancel_job(job_id).await?;
-    tracing::info!(job_id = %job_id, "job cancelled");
+    tracing::info!(job_id = %ShortUuid(job_id), "job cancelled");
 
     Ok(StatusCode::OK)
 }

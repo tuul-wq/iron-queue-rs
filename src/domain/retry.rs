@@ -1,4 +1,3 @@
-use std::cmp;
 use std::time::Duration;
 
 pub struct RetryPolicy {

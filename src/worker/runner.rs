@@ -13,6 +13,7 @@ use crate::{
         strategy_from_policy,
     },
     repository::jobs::{JobRepository, JobRepositoryError},
+    utils::ShortUuid,
     worker::ExecutionError,
 };
 
@@ -114,7 +115,7 @@ impl WorkerRunner {
     }
 
     pub async fn run(&mut self, shutdown_token: &CancellationToken) -> Result<(), RunnerError> {
-        tracing::info!(worker_id = %self.id, "worker started");
+        tracing::info!(worker_id = %ShortUuid(self.id), "worker started");
 
         loop {
             if shutdown_token.is_cancelled() {
@@ -125,10 +126,10 @@ impl WorkerRunner {
 
             match self.run_once().await {
                 Ok(RunnerOutcome::Idle) => {
-                    tracing::debug!(worker_id = %self.id, "no job available");
+                    tracing::debug!(worker_id = %ShortUuid(self.id), "no job available");
                 }
                 Ok(RunnerOutcome::Completed { job_id, priority }) => {
-                    tracing::info!(worker_id = %self.id, %job_id, priority = %priority, "job completed");
+                    tracing::info!(worker_id = %ShortUuid(self.id), job_id = %ShortUuid(job_id), priority = %priority, "job completed");
                     continue;
                 }
                 Ok(RunnerOutcome::RetryScheduled {
@@ -136,15 +137,15 @@ impl WorkerRunner {
                     retry_count,
                     run_at,
                 }) => {
-                    tracing::info!(worker_id = %self.id, %job_id, retry_count, run_at = %run_at, "job retry scheduled");
+                    tracing::info!(worker_id = %ShortUuid(self.id), job_id = %ShortUuid(job_id), retry_count, run_at = %run_at, "job retry scheduled");
                     continue;
                 }
                 Ok(RunnerOutcome::Failed { job_id, priority }) => {
-                    tracing::warn!(worker_id = %self.id, %job_id, priority = %priority, "job failed permanently");
+                    tracing::warn!(worker_id = %ShortUuid(self.id), job_id = %ShortUuid(job_id), priority = %priority, "job failed permanently");
                     continue;
                 }
                 Err(error) => {
-                    tracing::warn!(worker_id = %self.id, error = %error, "worker run cycle failed");
+                    tracing::warn!(worker_id = %ShortUuid(self.id), error = %error, "worker run cycle failed");
                 }
             }
 
@@ -153,14 +154,14 @@ impl WorkerRunner {
             }
         }
 
-        tracing::info!(worker_id = %self.id, "worker stopped");
+        tracing::info!(worker_id = %ShortUuid(self.id), "worker stopped");
         Ok(())
     }
 
     #[instrument(
         level = "info",
         skip(self),
-        fields(worker_id = %self.id, job_id = field::Empty)
+        fields(worker_id = %ShortUuid(self.id), job_id = field::Empty)
     )]
     async fn run_once(&mut self) -> Result<RunnerOutcome, RunnerError> {
         let Some(job) = self.claim_next().await? else {
@@ -168,7 +169,7 @@ impl WorkerRunner {
         };
 
         self.strategy.job_claimed();
-        Span::current().record("job_id", &field::display(job.id));
+        Span::current().record("job_id", &field::display(ShortUuid(job.id)));
 
         match execute_job(&job.payload).await {
             Ok(_) => self.complete(job).await,
